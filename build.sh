@@ -9,7 +9,7 @@ export FORCE_UNSAFE_CONFIGURE=1
 export LIBCLANG_PATH=/usr/lib/llvm-14/lib
 export CLANG_PATH=/usr/bin/clang
 export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=`pwd`/output/host/arm-buildroot-linux-gnueabihf/sysroot"
-rm -rf output/image/* ; rm -rf output/target ; find output/ -name ".stamp*installed" -delete ; rm -f output/build/host-gcc-final-*/.stamp_host_installed
+rm -rf output/images/*
 make
 
 

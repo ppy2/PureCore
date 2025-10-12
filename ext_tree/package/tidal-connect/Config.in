@@ -1,0 +1,4 @@
+config BR2_PACKAGE_TIDAL_CONNECT
+	bool "tidal-connect"
+	help
+	  Tidal Connect streaming service client
