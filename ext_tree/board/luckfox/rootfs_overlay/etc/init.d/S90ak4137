@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# For DSD'it - DSD SRC https://puredsd.ru/
+
+case "$1" in
+    start)
+    # Enable AK4137 via GPIO52
+    echo 52 > /sys/class/gpio/export
+    echo out > /sys/class/gpio/gpio52/direction
+
+    if grep -q "SUBMODE=plr" /etc/i2s.conf; then
+	echo 0 > /sys/class/gpio/gpio52/value
+    else
+        echo 1 > /sys/class/gpio/gpio52/value
+    fi
+
+    usleep 10000
+
+    if /usr/sbin/i2cdetect -ry 1 |grep -q "10: .. 11" ; then
+    /usr/sbin/i2cset -f -y 1 0x10 0x00 0x80
+    /usr/sbin/i2cset -f -y 1 0x10 0x01 0x13
+    /usr/sbin/i2cset -f -y 1 0x10 0x02 0x00
+    /usr/sbin/i2cset -f -y 1 0x10 0x03 0xA0
+    /usr/sbin/i2cset -f -y 1 0x10 0x04 0x08
+    /usr/sbin/i2cset -f -y 1 0x10 0x05 0x03
+    /usr/sbin/i2cset -f -y 1 0x10 0x00 0x81
+
+    /usr/sbin/i2cset -f -y 1 0x11 0x00 0x80
+    /usr/sbin/i2cset -f -y 1 0x11 0x01 0x13
+    /usr/sbin/i2cset -f -y 1 0x11 0x02 0x00
+    /usr/sbin/i2cset -f -y 1 0x11 0x03 0xA0
+    /usr/sbin/i2cset -f -y 1 0x11 0x04 0x61
+    /usr/sbin/i2cset -f -y 1 0x11 0x05 0x02
+    /usr/sbin/i2cset -f -y 1 0x11 0x00 0x81
+    fi
+    ;;
+    *)
+
+exit 1
+esac

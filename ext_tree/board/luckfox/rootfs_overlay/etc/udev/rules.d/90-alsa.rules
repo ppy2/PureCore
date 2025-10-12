@@ -1,0 +1,2 @@
+# ALSA sound devices - allow audio group access
+SUBSYSTEM=="sound", GROUP="audio", MODE="0660"

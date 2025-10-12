@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="zepto.min.js"></script>
+<script src="aplayer.js"></script>
+<link rel="stylesheet" href="aplayer.css">
+<meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=0.75, minimum-scale=0.5, maximum-scale=1.0, user-scalable=yes"/>
+<title>Album Player 2.16</title>
+</head>
+<body onload="OnFocus()">
+<div id="all">
+<div style="width:100%;height:40px">
+<div id="Filter" style="width:100%;position:relative;top:-6px"><img id='bRadio' style="margin:7px" src="img/radio.png" width='32' height='32' alt="Radio" onclick="OnRadio()"><span style="float: right"><img src="img/search.png"  alt="Search">&nbsp;&nbsp;<input type="text" id="Search" onkeyup="OnSearch()" style="color: rgb(146,255,127);"><img src="img/closep.png"  id="bClear" onmousedown="ClearDown()" onmouseup="ClearUp()" onmouseout="ClearUp()" onclick="ClearCommand()" alt="Clear" style="position:relative;top:10px"></span></div>
+<div id="Input"  style="width:100%;position:relative;top:16px;display:none"><span style="float: right;color:rgb(191,255,255)">Save playlist:&nbsp;<input id="PlaylistName" type="text" style="color: rgb(146,255,127);font-size:14px;">&nbsp;<img src="img/okp.png" id="bOk" onmousedown="OkDown()" onmouseup="OkUp()" onmouseout="OkUp()" onclick="OkCommand()" alt="OK" style="position:relative;top:10px"></span></div>
+</div>
+<table width="100%"><tr><td>
+<table width="100%">
+<tr><td colspan="3"><select name='Album' id='Albums' size="1" onchange="ChangeAlbum(this)" style='line-height: 1.1;overflow: hidden;background-color: rgb(68, 68, 68);color: rgb(146,255,127);font-size:16px;width:100%'></select></td></tr>
+<tr><td width="98%"><div id="SongsBlock" onmousedown="return false" class="narrowList" style ="width:100%;overflow-y: auto;overflow-x: hidden;height: 240px; border: 1px solid rgb(30,30,30)"><img id="Hourglass" src="img/hourglass.gif" alt="" style="width: 64px;height: 64px;position: absolute;top: 200px;left: 200px;visibility:hidden"><table id='Playlists' class="narrowList" style='display: none;padding-left: 2px;line-height: 1.1;white-space: nowrap;border-spacing: 0px;color: rgb(146,255,127)'></table><table id='Songs' class="narrowList" style='border:rgb(30,30,30);padding-left: 2px;line-height: 1.1;white-space: nowrap;border-spacing: 0px;color: rgb(255,255,144)'></table></div></td><td id="PictMode" onclick='OnPictureMode()' style='width:16px;display: none;background-color: rgb(68, 68, 68)'></td><td id="ImgBlock" align="center"><div style="width:240px;height:240px;line-height:240px;text-align:center;overflow:hidden">
+<div id="redit" style="width:240px;height:240px"> Catalog Section:<br><input id="rsect" size="34"><br> Station Stream URL:<br><input id="rstat" size="34"><br>Station Name:<br><input id="rname" size="34"><br><br>
+  &nbsp;&nbsp;<button id="reditok" onclick="redit_ok()"> Add </button>&nbsp;&nbsp;&nbsp;<button id="reditok2" onclick="redit_ok2()">OK</button>&nbsp;&nbsp;&nbsp;<button onclick="redit_cl()"> Cancel </button><br>
+  <span id="rmess"></span>
+</div>
+<img id="Image" src="img/logo.png" alt="" onclick='OnPictureMode()'></div></td></tr>
+</table>
+<table onmousedown="return false" id="InfoBlock" style ="border-spacing: 0px;line-height:16px;height:72px;white-space: nowrap;overflow: hidden; background : rgb(68,68,68);border: 1px solid rgb(30,30,30);padding: 2px 2px 6px" width="100%" onclick="OnViewAlbum()">
+<tr style="line-height:18px"><td id='lYear' style="color:rgb(133,255,255);width:40px"></td><td id='lArtist' style="padding-left: 6px;color:rgb(191,255,255)"></td></tr>
+<tr style="line-height:18px" style="color:rgb(166,255,147)"><td  id='lAlbum' colspan="2"></td></tr>
+<tr style="color:rgb(230,240,180);line-height:18px"><td style="color:rgb(230,240,180)" id='lNum'></td><td id='lSong'></td></tr>
+<tr class="data" style="text-align:left;vertical-align:top;line-height:18px"><td colspan=2 id='lRadio' style="word-break:break-all;white-space:normal"></td></tr>
+</table>
+<table onmousedown="return false" onclick="StatusClick()" style="border-spacing: 0px; width: 100%;border: 1px solid rgb(30,30,30);color:rgb(224,224,224);margin-bottom: 6px; background: rgb(68,68,68);text-align: right; border-top-width: 0px;white-space: nowrap;overflow: hidden">
+<tr><td id="lKbps" class="data" style="width:40px"></td><td class="cell" style="width:26px">kbps</td><td id="lKhz" class="data" style="width:36px"></td><td class="cell" id="khz" style="width:26px">kHz</td><td id="lBit" style="width:16px" class="data"></td><td style="width:16px" class="cell">bit</td><td id="lCh" class="data" style="width:12px"></td><td class="cell" style="width:10px">ch</td><td style="text-align: left;width: 26px;padding-left: 6px">length</td><td id="lLength" style="width:40px;padding-right: 3px" class="data"></td><td style="border-left: 1px solid rgb(30,30,30);width:16px;padding-left: 3px">time</td><td id="lTime" class="data" style="width:40px;text-align: right;padding-right: 3px"></td></tr>
+</table>
+</td></tr></table>
+<div style="width:470px">
+<img id="bPrev" src="img/prevp.png" alt="Prev" class="btn" onmousedown="PrevDown()" onmouseup="PrevUp()" onmouseout="PrevUp()" onclick="PrevCommand()" width='57' height='35'><img id="bStop" src="img/stopp.png" alt="Stop" class="btn" onmousedown="StopDown()" onmouseup="StopUp()" onmouseout="StopUp()" onclick="StopCommand(ParseStd)" width='57' height='35'><img id="bPlay" src="img/playp.png" alt="Play" class="btn" onmousedown="PlayDown()" onmouseup="PlayUp()" onmouseout="PlayUp()" onclick="PlayCommand()" width='57' height='35'><img id="bPause" src="img/pausep.png" alt="Pause" class="btn" onmousedown="PauseDown()" onmouseup="PauseUp()" onmouseout="PauseUp()" onclick="PauseCommand()" width='57' height='35'><img id="bNext" src="img/nextp.png" alt="Next" class="btn" onmousedown="NextDown()" onmouseup="NextUp()" onmouseout="NextUp()" onclick ="NextCommand()" width='57' height='35'><img id='bOpen' src="img/openp.png" width='57' height='35' alt="Open" style="margin: 6px 6px 6px 40px" onmousedown="OpenDown()" onmouseout="OpenUp()" onclick="OnSelectPlaylist(false)">
+</div>
+<br>
+<table width="450"><tr>
+    <td style="width:400px">
+    <input type="range" onchange="ProgressChange(this.value)" id="progress" value="0" min='0' max="100" step="0.25" style="width:300px;margin-top:16px"><img id="bMinus" src="img/minusp.png" alt="Minus" class="btn" onmousedown="MinusDown()" onmouseup="MinusUp()" onmouseout="MinusUp()" onclick="MinusCommand()" style="float:right;margin-right:10px"  width='40' height='40'>     
+    </td><td><img id="bPlus" src="img/plusp.png" alt="Plus" class="btn" onmousedown="PlusDown()" onmouseup="PlusUp()" onmouseout="PlusUp()" onclick="PlusCommand()" width='40' height='40' style="float:right"></td></tr><tr><td>
+     <input type="range" id="volume" onchange="VolumeChange(this.value)" min=0 max=100 value=100 step="1" style="width:301px;">
+     <img src="/img/vol.png" alt="Volume">
+     </td><td><img id="bSet" src="/img/settingsp.png" alt="Settings" class="btn" onmousedown="SetDown()" onmouseup="SetUp()" onmouseout="SetUp()" onclick="ShowConfig()" width='40' height='40' style="float:right;margin-right:6px"></td></tr>
+</table>
+<br>
+<span id=lError class="error"></span>
+</div>
+<div id="config_body" style="width:480px;height:530px">
+<div class="wrapper">
+  <div id="header">
+    <h3>
+      Album Player settings
+    </h3>
+  </div>
+  <div id="tabs">    
+    <ul class="tabs">
+      <li class="tab active"><a href="#general" class="active">General</a></li>
+      <li class="tab"><a href="#decoder">Decoder</a></li>
+      <li class="tab"><a href="#dsp">DSP</a></li>
+      <li class="tab"><a href="#system">System</a></li>
+      <li class="tab"><a href="#status">Status</a></li>
+      <li class="tab"><a href="#colors">Colors</a></li>
+      <li class="tab"><a href="#card">Card</a></li>
+    </ul>
+    <div class="tabs-content">
+<div id="general">        
+<table style="width:480px">
+<tr><td>Cover folders <input id="covers" size="10" style="margin-bottom:2px" value="Covers;">&nbsp;&nbsp;&nbsp;Root folder&nbsp;<input id="root" size="6" style="margin-bottom:2px"></td></tr>
+<tr><td nowrap>Play silence (ms) <input id="silence" class="val" type="text"><span id="td16">&nbsp;&nbsp;&nbsp;&nbsp;<input id="check_16bit" type="checkbox"> 16 bit output</span><span id="td24">&nbsp;&nbsp;&nbsp;&nbsp;<input id="check_24bit" type="checkbox"> 24 bit output</span></td></tr>
+<tr><td><table class="conf_section3">
+<tr><td colspan=2 style="width:150px">Playback mode</td><td style="width:20px">&nbsp;</td><td colspan="2">Preload buffer (frames)</td></tr>
+<tr><td><input id="radio_st" type="radio" name="pm" checked></td><td>Standard</td><td>&nbsp;</td><td colspan="2"><input id="std_buffer" type="text" class="val2"> (16384-8388608)</td></tr>
+<tr><td><input id="radio_di" type="radio" name="pm"></td><td>Direct Input</td><td>&nbsp;</td><td colspan="2"><input id="check_gapless" type="checkbox" checked> Gapless mode</td></tr>
+<tr><td><input  id="radio_fm" type="radio" name="pm" disabled></td><td>Full Memory</td><td>&nbsp;</td><td colspan="2"><input  id="check_preload" type="checkbox" disabled> Full preloading</td></tr></table></td></tr>
+<tr><td><div style="margin-left:8px"><input id="check_volume" type="checkbox"> <label for="check_volume">Volume control</label> <input id="hwvolume" type="checkbox"><label id="lhw" for="hwvolume">HW </label><select id="hwlist" style="width:120px"/> </div></td></tr>
+<tr><td><div style="margin-left:8px"><input id="check_auto" type="checkbox"> Next album&nbsp;&nbsp;<input id="check_tags" type="checkbox"> Use tags&nbsp;&nbsp;<input id="win1251" type="checkbox"> Win1251&nbsp;&nbsp;<input id="check_cue" type="checkbox"> Use .cue</div></td></tr>
+<tr><td  style="vertical-align:top"><table class="conf_section3"><tr><td colspan=2 style="width:128px">&nbsp;ALSA Period</td><td colspan=3 style="width:128px"> &nbsp;&nbsp;&nbsp;ALSA Buffer</td><td colspan=2 style="width:140px"> &nbsp;&nbsp;Buffer Access</td></tr>
+<tr><td></td><td><input id="pframes" class="val" type="text">frames</td><td>&nbsp;</td><td></td><td><input  id="bframes" class="val" type="text">frames</td><td></td><td><input  id="mmap" name="mmap" type="radio" disabled> MMAP mode</td></tr>
+<tr><td></td><td><input id="pmks" class="val" type="text"> µs</td><td>&nbsp;</td><td></td><td><input id="bmks" class="val" type="text"> µs &nbsp;</td><td></td><td><input  id="rw" name="mmap" type="radio" checked> RW mode</td></tr>
+</table>
+</td></tr>
+</table>
+</div>
+<div id="decoder">
+    <ul class="tabs">
+        <li class="tab active"><a href="#dsd" class="active">DSD</a></li>        
+        <li class="tab"><a href="#dvda">DVD-A</a></li>
+        <li class="tab"><a href="#radio">Radio</a></li>
+      </ul>
+  <div id="dsd">      
+  <table style="width:480px;margin-left:30px">
+    <tr><td><table  style="width:400px">
+    <tr><td>&nbsp;DSD output mode</td><td>&nbsp;</td><td>&nbsp;DSD Mode limit</td></tr>
+    <tr><td><select id="dsd_mode" style="width:120px"> 
+        <option value="0">PCM</option>
+        <option value="1">DoP</option>
+        <option id="dsd_n" value="2">Native DSD</option>
+        </select><td>&nbsp;</td>
+        <td><select id="dsd_mode_limit" style="width:120px"> 
+        <option value="0">DSD64</option>
+        <option value="1">DSD128</option>
+        <option value="2">DSD256</option>
+        <option value="3">DSD512</option>
+        </select></td></tr>
+    <tr><td>&nbsp;PCM samplerate</td><td>&nbsp;</td><td>&nbsp;PCM Volume</td></tr>
+        <tr><td><select id="dsd_pcm_freq" style="width:120px"> 
+        <option value="0">44100</option>
+        <option value="1">88200</option>
+        <option value="2">176400</option>
+        <option value="3">352800</option>
+        </select><td>&nbsp;</td><td><select id="dsd_pcm_volume" style="width:120px"> 
+            <option value="0">+0dB</option>
+            <option value="1">+1dB</option>
+            <option value="2">+2dB</option>
+            <option value="3">+3dB</option>
+            <option value="4">+4dB</option>
+            <option value="5">+5dB</option>
+            <option value="6">+6dB</option>
+            </select></td></tr>    
+        <tr><td colspan="2"><br><input id="dsd_pcm_multi" type="checkbox">PCM for multichannel<br><br></td><td><input id="sacd_full" type="checkbox"> Full disk mode</td></tr>    
+        <tr><td colspan="2">DSD to PCM converter</td><td>&nbsp;Preferable Area</td></tr>
+        <tr><td><select id="dsd_to_pcm_mode" style="width:180px"> 
+            <option value="0">Multistage</option>
+            <option value="1">Direct</option>
+            <option value="2">FIR 30KHz</option>
+            <option value="3">FIR 40KHz</option>
+            <option value="4">FIR 50KHz</option>
+            <option value="5">FIR 60KHz</option>
+            <option value="6">FIR S-Audio Systems</option>
+            </select><td>&nbsp;</td>
+            <td><select id="dsd_area" style="width:180px"> 
+            <option value="0">None</option>
+            <option value="1">Stereo</option>
+            <option value="2">Multichannel</option>            
+            </select></td></tr>
+  </table></td></tr>
+   </table>
+   </div>
+   <div id="dvda">      
+     <table style="width:480px;margin-left:30px">
+        <tr><td><br><input id="dvda_nomix" type="checkbox">Don't load stereo downmixes<br><br></td></tr>    
+        <tr><td>&nbsp;Preferable Mode:</td></tr>
+        <tr><td><select id="dvda_area" style="width:180px"> 
+            <option value="0">None</option>
+            <option value="1">Stereo</option>
+            <option value="2">Multichannel</option>            
+            </select></td></tr>
+   </table>
+</div>
+   <div id="radio">      
+     <table style="width:440px;margin-left:30px">
+        <tr><td><br><input id="radio_pict" type="checkbox">Images <input id="num_pics" style="width:16px" class="val">(1-10)  &nbsp;&nbsp; API cx &nbsp;<input id="api_cx" style="width:150px" type="text"></td></tr>            
+        <tr><td>API key &nbsp; <input id="api_key" style="width:340px" type="text"></td></tr>            
+    	  <tr><td><input id="radio_q" type="checkbox"> query width <input id="radio_qv" style="width:140px" type="text" placeholder="album cover" maxlength="31"> &nbsp;&nbsp; <input id="radio_auto" type="checkbox"> Autoplay</td></tr>                    
+        <tr><td><input id="radio_proxy" type="checkbox">Use proxy server: <input id="radio_proxy2" size="18" type="text" maxlength="31"></td></tr>      
+        <tr><td>[user:pass@]server:port<br></td></tr>      
+        <tr><td><input id="radio_ua" type="checkbox">Custom User-Agent: <input id="radio_user" size="16" maxlength="127" type="text"><br></td></tr>            
+		  <tr><td>Catalog Date (<span style="color:blue">local</span> / <span style="color:green">server</span>): <span id="catdate1" style="color:blue"></span> <span id="catdate2" style="color:green">AAA</span></td></tr>    
+		  <tr><td> <button onclick="UpdateRadio(false)">Update Catalog</button> <button onclick="UpdateRadio(true)">Replace Catalog</button></td></tr>    
+		   <tr><td><span id='radwait' style="visibility:hidden">Please wait...</span><br></td></tr>  
+   </table>
+</div>
+</div>
+<div id="dsp">
+    <ul class="tabs">
+        <li class="tab active"><a href="#converter" class="active">Converter</a></li>        
+        <li class="tab"><a href="#resampler">Resampler</a></li>
+        <li class="tab" style="display:none" id="convtab"><a href="#conv">Convolver</a></li>
+      </ul>
+  <div id="converter">
+  <br>
+  <table class="conf_section3" style="text-align: left">
+     <tr><td><input id="check_multi" type="checkbox">Convert multichannel to stereo<br></td>
+     </tr>      
+     <tr><td><input id="check_swap" type="checkbox"><span>Swap channels (stereo)</span><br></td>
+     </tr> 
+    <tr><td><input id="check_phase" type="checkbox"><span>Invert phase</span><br>
+      </td>
+    </tr>            
+  </table>
+  <p>
+  <table class="conf_section3" style="text-align: left">
+  <tr><td colspan=4><input id="enable_dsd" type="checkbox"> Convert PCM to DSD (converter by Mans Rullgard)<br></td>
+  </tr>
+  <tr><td> Filter </td><td>
+      <select id="dsd_filter">
+          <option  value="0">clans-4</option>
+          <option  value="1">clans-5</option>
+          <option  value="2">clans-6</option>
+          <option  value="3">clans-7</option>
+          <option  value="4">clans-8</option>
+          <option  value="5">sdm-4</option>
+          <option  value="6">sdm-5</option>
+          <option  value="7">sdm-6</option>
+          <option  value="8">sdm-7</option>
+          <option  value="9">sdm-8</option>
+        </select> 
+  </td>
+      <td> Rate 
+       </td><td><select id="dsd_rate">
+          <option  value="0">DSD64</option>
+          <option  value="1">DSD128</option>
+          <option  value="2">DSD256</option>            
+        </select> </td>
+  </tr> 
+  <tr><td> Output   
+        </td><td>
+            <select id="dsd_output">
+                <option  value="0">DoP&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</option>
+                <option  id="sdm_n"  value="1">Native</option>        
+              </select>
+        </td>
+        <td> Level   
+         </td><td><select id="dsd_level">
+            <option  value="0">0dB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</option>
+            <option  value="1">-6dB</option>              
+          </select></td>
+    </tr>     
+    <tr><td colspan=4><input id="dsd_multithread" type="checkbox"> Multi-thread mode<br></td>
+    </tr>
+</table>
+  </div>
+  <div id="resampler" style="padding-top:6px">
+  &nbsp;&nbsp;SoXR 0.1.3<br>
+  <table><tr><td>
+  <table class="conf_section2">
+    <tr><td><span>&lt; 44 KHz</span>
+      </td><td><select id="res_bf44"> 
+        <option value="0">original</option>
+        <option value="1">44.1 KHz</option>
+        <option value="2">48 KHz</option>
+        <option value="3">88.2 KHz</option>
+        <option value="4">96 KHz</option>
+        <option value="5">176.4 KHz</option>
+        <option value="6">192 KHz</option>
+        <option value="7">352.8 KHz</option>
+        <option value="8">384 KHz</option>
+        <option value="9">705.6 KHz</option>
+        <option value="10">768 KHz</option>
+        </select></td></tr>
+      <tr><td>
+          <span>44.1 KHz</span>
+          </td><td><select id="res44"> 
+            <option value="0">original</option>
+            <option value="2">48 KHz</option>
+            <option value="3">88.2 KHz</option>
+            <option value="4">96 KHz</option>
+            <option value="5">176.4 KHz</option>
+            <option value="6">192 KHz</option>
+            <option value="7">352.8 KHz</option>
+            <option value="8">384 KHz</option>
+            <option value="9">705.6 KHz</option>
+            <option value="10">768 KHz</option>
+            </select></td></tr>
+    <tr><td>
+    <span>48 KHz</span>
+    </td><td><select id="res48"> 
+      <option value="0">original</option>
+      <option value="1">44.1 KHz</option>
+      <option value="3">88.2 KHz</option>
+      <option value="4">96 KHz</option>
+      <option value="5">176.4 KHz</option>
+      <option value="6">192 KHz</option>
+      <option value="7">352.8 KHz</option>
+      <option value="8">384 KHz</option>
+      <option value="9">705.6 KHz</option>
+      <option value="10">768 KHz</option>
+      </select></td></tr>
+      <tr><td>
+        <span>88.2 KHz</span>
+        </td><td><select id="res88"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+          </select></td></tr>
+          <tr><td>
+            <span>96 KHz</span>
+            </td><td><select id="res96"> 
+              <option value="0">original</option>
+              <option value="1">44.1 KHz</option>
+              <option value="2">48 KHz</option>
+              <option value="3">88.2 KHz</option>
+              <option value="5">176.4 KHz</option>
+              <option value="6">192 KHz</option>
+              <option value="7">352.8 KHz</option>
+              <option value="8">384 KHz</option>
+              <option value="9">705.6 KHz</option>
+              <option value="10">768 KHz</option>
+              </select></td></tr>         
+   </table></td> <td style="vertical-align: top"> <table class="conf_section2">
+              <tr><td>
+                <span>176.4 KHz</span>
+                </td><td><select id="res176"> 
+                  <option value="0">original</option>
+                  <option value="1">44.1 KHz</option>
+                  <option value="2">48 KHz</option>
+                  <option value="3">88.2 KHz</option>
+                  <option value="4">96 KHz</option>
+                  <option value="6">192 KHz</option>
+                  <option value="7">352.8 KHz</option>
+                  <option value="8">384 KHz</option>
+                  <option value="9">705.6 KHz</option>
+                  <option value="10">768 KHz</option>
+                  </select></td></tr>
+                  <tr><td>
+                    <span>192 KHz</span>
+                    </td><td><select id="res192"> 
+                      <option value="0">original</option>
+                      <option value="1">44.1 KHz</option>
+                      <option value="2">48 KHz</option>
+                      <option value="3">88.2 KHz</option>
+                      <option value="4">96 KHz</option>
+                      <option value="5">176.4 KHz</option>
+                      <option value="7">352.8 KHz</option>
+                      <option value="8">384 KHz</option>
+                      <option value="9">705.6 KHz</option>
+                      <option value="10">768 KHz</option>
+                      </select></td></tr>
+                      <tr><td>
+                        <span>352.8 KHz</span>
+                        </td><td><select id="res352"> 
+                          <option value="0">original&nbsp;&nbsp;&nbsp;&nbsp;</option>
+                          <option value="1">44.1 KHz</option>
+                          <option value="2">48 KHz</option>
+                          <option value="3">88.2 KHz</option>
+                          <option value="4">96 KHz</option>
+                          <option value="5">176.4 KHz</option>
+                          <option value="6">192 KHz</option>
+                          <option value="8">384 KHz</option>
+                          <option value="9">705.6 KHz</option>
+                          <option value="10">768 KHz</option>
+                          </select></td></tr>
+                          <tr><td>
+                            <span>384 KHz</span>
+                            </td><td><select id="res384"> 
+                              <option value="0">original</option>
+                              <option value="1">44.1 KHz</option>
+                              <option value="2">48 KHz</option>
+                              <option value="3">88.2 KHz</option>
+                              <option value="4">96 KHz</option>
+                              <option value="5">176.4 KHz</option>
+                              <option value="6">192 KHz</option>
+                              <option value="7">352.8 KHz</option>
+                              <option value="9">705.6 KHz</option>
+                              <option value="10">768 KHz</option>
+                              </select></td></tr>            
+   </table></td></tr>
+   <tr style="text-align:left"><td><select id="soxr_phase" style="width:180px"> 
+    <option value="0">Minimum phase</option>
+    <option value="1">Intermediate phase</option>
+    <option value="2">Linear phase</option></select></td><td> &nbsp;&nbsp;Attenuate, dB -<input type="text" id="att" style="width:18px"></td></tr>
+   <tr style="text-align:left"><td colspan="2"><input id="soxr_filter" type="checkbox">Steep filter (99%)</td></tr>
+   <tr style="text-align:left"><td colspan="2"><input id="soxr_quality" type="checkbox">Ultra High Quality</td></tr>
+  </table>
+   </div>
+   <div id="conv"><br>    
+    <input id="conv_en" type="checkbox"><label for="conv_en" >Enable convolver</label><br>
+    <span>Filters:</span>
+    <p id="filters" style="padding:8px;border:1px solid gray;width:400px;height:100px;overflow-y:auto;margin:8px"></p>
+  Select filter:  <input type="text" id="FilterNum" style="width:24px"><br><br>  
+  Attenuation: <input style="width:300px;height:10px" id="db" onchange="AttChange(this.value)" type="range" min="-60" max="60" step="0.5"> <span id="dbtx">0</span>dB<br>
+  <p id="filtdesc"></p>
+</div>
+</div>
+<div id="system">
+  <table style="width:480px">
+   <tr><td>These options will be effective only for the root user:</td></tr>
+    <tr><td>
+    <table class="conf_section">    
+    <tr><td>Process Priority (0 - 99)</td><td style="width:8px">&nbsp;</td><td><input id="priority" type="text" class="val"></td></tr>
+    <tr><td>Process Nice (-20 - 19)</td><td style="width:8px">&nbsp;</td><td><input id="nice" type="text" class="val"></td></tr>
+    </table></td></tr>
+    <tr><td><input id="check_memory" type="checkbox" disabled> &nbsp; Lock memory</td></tr>
+    <tr><td>
+    <table class="conf_section">
+    <tr><td colspan=3 style="width:200">Selecting cores</td></tr>
+    <tr><td><input  id="cores0" type="radio" name="cores" disabled></td><td>&nbsp;</td><td>Without selecting cores</td></tr>
+    <tr><td><input  id="cores1" type="radio" name="cores"></td><td>&nbsp;</td><td>Single Core</td></tr>
+    <tr><td><input  id="cores2" type="radio" name="cores" disabled></td><td>&nbsp;</td><td>Double Core</td></tr>    
+    </table></td></tr>
+  </table>
+</div>
+<div id="status">
+<table style="width:470px;text-align:left;margin:6px">
+   <tr><td style="width:170px;">Root User :</td><td style="width:8px">&nbsp;</td><td id="stat_root"></td></tr>
+   <tr><td>Used Cores :</td><td style="width:8px">&nbsp;</td><td id="stat_cores"></td></tr>
+   <tr><td>Process Priority:</td><td style="width:8px">&nbsp;</td><td id="stat_prio"></td></tr>
+   <tr><td>Process Nice:</td><td style="width:8px">&nbsp;</td><td id="stat_nice"></td></tr>
+   <tr><td nowrap>Supports 16 bit output:</td><td style="width:8px">&nbsp;</td><td id="stat_16bit"></td></tr>
+   <tr><td nowrap>Supports 24 bit output:</td><td style="width:8px">&nbsp;</td><td id="stat_24bit"></td></tr>
+   <tr><td nowrap>Supports 32 bit output:</td><td style="width:8px">&nbsp;</td><td id="stat_32bit"></td></tr>
+   <tr><td nowrap>Supports Native DSD:</td><td style="width:8px">&nbsp;</td><td id="stat_dsd"></td></tr> 
+   <tr><td>Playing:</td><td style="width:8px">&nbsp;</td><td id="stat_play"></td></tr>
+   <tr class="playing"><td>Playing file:</td><td style="width:8px">&nbsp;</td><td id="stat_play_file"></td></tr>
+   <tr class="playing"><td>ALSA Period:</td><td style="width:8px">&nbsp;</td><td id="stat_period_size"></td></tr>
+   <tr class="playing"><td>ALSA Buffer:</td><td style="width:8px">&nbsp;</td><td id="stat_buffer_size"></td></tr>
+</table>   
+</div>
+<div id="colors">
+<table style="width:200px;text-align:left;margin:6px">
+   <tr><td><label for="a_color">Album: </label></td><td><input id="a_color" type="color" value="#92ff7f" style="height:32px"></td></tr>
+   <tr><td><label for="t_color">Track: </label></td><td><input id="t_color" type="color" value="#ffff90" style="height:32px"></td></tr>
+   <tr><td><label for="yi_color">Year Info: </label></td><td><input id="yi_color" type="color" value="#85ffff" style="height:32px"></td></tr>
+   <tr><td><label for="ar_color">Artist Info: </label></td><td><input id="ar_color" type="color" value="#bfffff" style="height:32px"></td></tr>
+   <tr><td><label for="ai_color">Album Info: </label></td><td><input id="ai_color" type="color" value="#a6ff93" style="height:32px"></td></tr>
+   <tr><td><label for="ti_color">Track Info: </label></td><td><input id="ti_color" type="color" value="#e6f0b4" style="height:32px"></td></tr>
+   <tr><td><label for="i_color">Info Box: </label></td><td><input id="i_color" type="color" value="#bfffff" style="height:32px"></td></tr>
+</table>   
+</div>
+<div id="card">    
+  <span>/etc/asound.conf:</span>
+  <p id="asound" style="padding:8px;border:1px solid gray;width:340px;height:100px;overflow-y:auto;margin:8px"></p>
+<span>Available cards:</span>
+  <p id="cards" style="padding:8px;border:1px solid gray;width:340px;height:100px;overflow-y:auto;margin:8px"></p>
+Select card:  <input type="text" id="CardNum" style="width:24px" disabled>  
+</div>
+</div>
+</div>
+</div>
+<div style="vertical-align:bottom"><button class="confbutton" onclick="SaveConfig()">Apply</button>&nbsp;&nbsp;<button class="confbutton"  onclick="HideConfig()">Return</button>&nbsp;<span id="config_label"></span><button style="float:right;margin:10px;height:30px" onclick="ExitApp()">Exit Player</button></div>
+</div>
+</body>
+</html>

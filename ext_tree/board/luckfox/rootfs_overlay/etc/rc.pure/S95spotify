@@ -1,0 +1,48 @@
+#!/bin/sh
+
+MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
+
+start() {
+    date |grep 1970 && /etc/init.d/S48sntp start
+    printf "Starting Spotify: "
+    NAME=`hostname`_`ifconfig eth0 | awk '/inet addr/{print substr($2,6)}'`
+    /usr/bin/librespot --cache /tmp --cache-size-limit 64M --bitrate 320 -R 100 --name $NAME > /dev/null 2>&1 &
+    sleep 1
+    pid=$(pidof librespot)
+    if [ -n "$pid" ]; then
+    renice -15 $pid
+    for tid in $(ls /proc/$pid/task/); do
+        renice -15 $tid
+    done
+    fi
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
+    }
+stop() {
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
+
+    # Try graceful stop first
+    killall librespot 2>/dev/null
+    sleep 1
+
+    # Force kill if still running (handles 100% CPU hang case)
+    if pidof librespot >/dev/null; then
+        logger -t spotify "Librespot not responding, forcing kill"
+        killall -9 librespot
+    fi
+}
+restart() {
+	stop
+	start
+}
+case "$1" in
+  start|stop|restart)
+	"$1"
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+
+

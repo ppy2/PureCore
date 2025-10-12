@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+ <title>Album Player 2.16</title>
+ <link rel="shortcut icon" href="img/favicon.ico" />	
+ <script src="zepto.min.js"></script>
+ <script src="aplayer.js"></script>
+ <script type="text/javascript" src="js/bootstrap.min.js"></script>
+ <script type="text/javascript" src="js/tiny-swiper.js"></script>
+ <script type="text/javascript" src="js/rangetouch.js"></script>
+ <script type="text/javascript" src="js/hammer.min.js"></script>
+ <link rel="stylesheet" href="css/bootstrap.min.css">
+ <link rel="stylesheet" href="aplayer.css">
+ <link rel="stylesheet" href="css/switch.css">
+ <link rel="stylesheet" href="css/fonts.css">
+</head>
+<body onload="OnFocus()" class="no-touch">
+<div id="bg"></div>
+<div id="spinner" class="spinner-border"></div>
+<div id="menu" class="topbar">
+	<div class="topbutton ripple" style="float:left;"><img id="bRadio" src="img/radiop.png" alt="Change Mode" ></div>
+	<div class="topbutton ripple"><img id="bPlus" src="img/_add_24.png" alt="Add"></div>
+ 	<div class="topbutton ripple"><img id="bMinus2" src="img/_remove_24.png" alt="Remove"></div>
+ 	<div class="topbutton ripple"><img id="bSave2" src="img/_save_24.png" alt="Save"></div>
+	<div class="topbutton ripple"><img id="bSettings" src="img/settingsr.png" alt="Settings"></div>
+        <div class="topbutton ripple"><img id="bOpen" src="img/_folder_open_24.png" alt="Open"></div>
+</div>
+<div id="all" class="swiper-container">
+ <div class="swiper-wrapper">
+  <div id="playnow" class="swiper-slide">
+    <div id="ImgBlock">
+ 	<img id="Image" src="img/noimage.png">
+ 	<div id="Image2"></div>
+    </div>
+    <div id="Topcontrols">
+	<div id="progressbox" class="progresswrap ProgressBar">
+		<input class="progressbar" type="range" id="progress" min="0" max="100" step="0.25" onchange="ProgressChange(this.value)">
+	</div>
+	<div class="ProgressText">
+		<span id="lTime"></span>
+                <span id="lLength"></span>
+                <span id="lRadio">&nbsp;</span>
+	</div>   
+	<div onmousedown="return false" id="InfoBlock">
+		<div id="lAlbum"></div>
+		<div id="lSong"></div>
+	</div>
+	<div id="tFormat" class="trackformat"></div>
+	<div class="playBar">
+	   <div class="stop ripple" onclick="StopCommand(ParseStd)" title="Stop"><div></div></div>
+	   <div class="ctrlbtn-group">
+		<div class="ctrlbtn ripple"><img id="bPrev" src="img/prevr.png" alt="Prev" class="mybtn" onmousedown="PrevDown()" onmouseup="PrevUp()" onmouseout="PrevUp()" onclick="PrevCommand()"></div>
+		<div class="ctrlbtn ripple"><img id="bPlay" src="img/playr.png" alt="Play" class="mybtn" onmousedown="PlayDown()" onmouseup="PlayUp()" onmouseout="PlayUp()" onclick="PlayCommand()"></div>
+		<div class="ctrlbtn ripple"><img id="bNext" src="img/nextr.png" alt="Next" class="mybtn" onmousedown="NextDown()" onmouseup="NextUp()" onmouseout="NextUp()" onclick="NextCommand()"></div>
+	   </div>
+	   <div class="mbutton ripple" onclick="openLib(false)">M</div>
+	</div>
+
+	<div id="volumebox" class="progresswrap" style="padding-top:0;">
+		<div class="ripple" style="padding:0 10px;" onclick="VolSub();" ><img src="img/s0.png"></div>
+		<input class="volumeBar" type="range" id="volume" min="0" max="100" value="100" step="1" style="vertical-align:middle;" onchange="VolumeChange(this.value)">
+    		<div id="volValue" class="ripple" onclick="VolPlus();">100%</div>
+	</div>
+	<div id="lError" class="error"></div>
+    </div>
+  </div>
+
+  <div id='plist' class="swiper-slide">
+    <table id="opensel" class="albumBoxA">
+	<tr><td>
+ 	  <select class="custom-select" name='Album' id='Albums' size='1' onchange="ChangeAlbum(this)"></select>
+	  </td>
+ 	  <td class="album-btn"><div class="input-group-append">
+ 	    <div id="bMinus" class="ripple" title="remove"><img src="img/_remove_24.png"></div>
+ 	    <div id="bSave" class="ripple" title="Save"><img src="img/_save_24.png"></div>
+ 	    </div>
+ 	  </td>
+ 	</tr>
+    </table>
+    <div id="SongsBlock" class="songsblock" onmousedown="return false" tabindex="-1">
+	<table id="Songs"></table>
+    </div>
+  </div>
+  <div id='library' class="swiper-slide">
+    <div class="toplib"><span id="modePL" data-mode="lib">Music Library</span><div class="stop2" onclick="StopCommand(ParseStd)"><div></div></div></div>
+    <div id="breadWrapper"><ol id="bread" class="breadcrumb sticky"></ol></div>
+    <div class="songsblock" onmousedown="return false" id="scrollbox" tabindex="-1">
+    <table id="Folders"></table>
+    <table id="Playlists"></table>
+    </div>
+  </div>
+ </div>
+</div>
+
+<div class="modal fade" id="picturebox" tabindex="-1" role="dialog">
+  <div class="modal-content">
+      <div id="picturewrap">
+        <img id="fullimg"></div>
+      </div>
+      <button type="button" class="btn close" data-dismiss="modal" aria-label="Close"><img src="img/_close_24.png" alt="close"></button>
+      <button type="button" class="btn update" aria-label="Next picture"><img src="img/_arrow_forward_24.png" alt="next"></button>
+      <div id="info2"></div>
+</div>
+
+<div class="modal fade" id="redit" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document" style="max-width:600px;">
+  <div class="modal-content">
+    <div class="modal-header" id="header">
+	<h5 id="redittitle" class="modal-title">
+      Add Station
+	</h5>
+	<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+	<span aria-hidden="true">&times;</span>
+	</button>
+    </div>
+
+  <div class="modal-body">
+	<div class="inputtext mb-2">
+          <label for="rsect">Catalog section</label>
+	  <input id="rsect" type="text">
+        </div>
+	<div class="inputtext mb-2">
+          <label for="rstat">Station Stream URL</label>
+	  <input id="rstat" type="text">
+        </div>
+	<div class="inputtext mb-2">
+          <label for="rname">Station Name</label>
+	  <input id="rname" type="text">
+        </div>
+        <div id="rmess" class="alert alert-danger"></div>
+  </div>
+ <div class="modal-footer">
+   <button type="button" id="reditadd" class="btn btn-primary" onclick="redit_ok('add')">Add</button>
+   <button type="button" id="reditrem" class="btn btn-danger" onclick="redit_ok('remove')">Delete</button>
+   <button type="button" id="reditok" class="btn btn-primary" onclick="redit_ok('add')">OK</button>
+   <button type="button" class="btn btn-secondary" onclick="redit_cl()" data-dismiss="modal">Cancel</button>
+   <span id="rmess"></span>
+ </div>
+
+</div></div>
+</div>
+
+<div class="modal fade" id="saveplist">
+  <div class="modal-dialog" role="document" style="max-width:300px;">
+  <div class="modal-content">
+    <div class="modal-header" id="header">
+	<h5 class="modal-title">
+      Save playlist
+	</h5>
+	<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+	<span aria-hidden="true">&times;</span>
+	</button>
+    </div>
+
+  <div class="modal-body">
+	<div class="inputtext mb-2">
+	  <input id="PlaylistName" type="text" placeholder="Input name playlist here">
+        </div>
+  </div>
+ <div class="modal-footer">
+   <button type="button" class="btn btn-primary" onclick="OkCommand()">Save</button>
+   <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+ </div>
+
+</div></div>
+</div>
+
+
+<div class="modal fade" id="config_body" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document" style="max-width:600px;">
+  <div class="modal-content">
+    <div class="modal-header" id="header">
+	<h5 class="modal-title">
+      Album Player settings
+	</h5>
+	<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+	<span aria-hidden="true">&times;</span>
+	</button>
+    </div>
+
+  <div class="modal-body">
+  <div id="tabs">
+    <div class="scrolltabs">
+    <ul id="tabs1" class="nav nav-pills" role="tablist">
+      <li class="nav-item">
+	<a class="nav-link active" data-toggle="tab" role="tab" href="#general" class="active" aria-selected="true">General</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#decoder">Decoder</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#dsp">DSP</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#system" aria-selected="false">System</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#status" aria-selected="false">Status</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#card" aria-selected="false">Card</a>
+      </li>
+      <li class="nav-item">
+	<a class="nav-link" data-toggle="tab" role="tab" href="#about" aria-selected="false">About</a>
+      </li>
+    </ul>
+    </div>
+    <div id="tab-content1" class="tab-content">
+      <div id="general" class="tab-pane fade show active" role="tabpanel">
+
+	<div class="inputtext mb-0">
+          <label for="covers">Cover folders</label>
+	  <input id="covers" type="text" value="Covers;">
+        </div>
+
+	<div class="inputtext mb-0">
+          <label for="root">Root folder</label>
+	  <input id="root" type="text" value="/mnt">
+        </div>
+
+	<div class="inputtext mb-0">
+	  <label for="silence">Play silence (ms)</label>
+	  <input id="silence" class="val" type="text" style="width:40px;">
+	</div>
+	<div class="switch" id="td16">
+	  <label>
+	  16 bit output
+          <input id="check_16bit" type="checkbox">
+	  <span class="lever"></span>
+	  </label>
+	</div>
+	<div class="switch" id="td24">
+	  <label>
+	  24 bit output
+          <input id="check_24bit" type="checkbox">
+	  <span class="lever"></span>
+	  </label>
+	</div>
+	<hr>
+	<div style="display:inline-block;">
+	  <div class="radiodiv" style="width:180px;">
+	    <p>Playback mode</p>
+	  <p>
+	    <label>
+	    <input class="with-gap" id="radio_st" type="radio" name="pm" checked>
+	    <span>Standard</span>
+	    </label>
+	  </p>
+	  <p>
+	    <label>
+	    <input class="with-gap" id="radio_di" type="radio" name="pm">
+	    <span>Direct Input</span>
+	    </label>
+	  </p>
+	  <p>
+	    <label>
+	    <input class="with-gap" id="radio_fm" type="radio" name="pm" disabled>
+	    <span>Full Memory</span>
+	    </label>
+	  </p>
+	  </div>
+
+	  <div style="float:left">
+	  <div style="margin-bottom:20px;">Preload buffer (frames)<br>
+	  <input id="std_buffer" type="text" class="val2" style="width:120px;margin-bottom:0;"> (16384-8388608)
+	  </div>
+	  <div class="switch">
+	    <label><div>Gapless mode</div>
+	    <input class="form-check-input" id="check_gapless" type="checkbox" checked>
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	  <div class="switch">
+	    <label><div>Full preloading</div>
+	    <input class="form-check-input" id="check_preload" type="checkbox" disabled>
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	  </div>
+	</div>
+	<hr>
+
+	<div style="width:100%;">
+	  <div class="switch">
+	    <label><div>Enable volume control</div>
+	    <input id="check_volume" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	    <div class="switch">
+	    <label><div>HW volume</div>
+	    <input id="hwvolume" type="checkbox"> 
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	    <div class="form-select">
+	    <label for="hwlist">HW parameter</label>
+    	    <select id="hwlist" style="width:120px">
+    	    </select>
+	    </div>
+	  <div class="switch">
+	    <label><div>Auto move to next album</div>
+	    <input id="check_auto" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	  <div class="switch">
+	    <label><div>Use .cue</div>
+	    <input id="check_cue" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	  <div class="switch">
+	    <label><div>Use tags</div>
+	    <input id="check_tags" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	  	 <div class="switch">
+	    <label><div>Windows-1251 tags</div>
+	    <input id="win1251" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	  </div>
+	</div>
+	<hr>
+	<div style="width:100%;display:inline-block">
+	 <div style="float:left;margin-right:10px">
+	  ALSA Period<br>
+	  <div class="form-group mb-2">
+	    <input id="pframes" class="val" type="text" style="width:80px">
+	    <label for="pframes">frames<label>
+	  </div>
+	  <div class="form-group mb-2">
+	    <input id="pmks" class="val" type="text" style="width:80px">
+	    <label for="pmks">us</label>
+	  </div>
+	 </div>
+	 <div style="float:left;margin-right:10px">
+	  ALSA Buffer<br>
+	  <div class="form-group mb-2">
+            <input id="bframes" class="val" type="text" style="width:80px">
+	    <label for="bframes">frames</label>
+	  </div>
+	  <div class="form-group mb-2">
+	    <input id="bmks" class="val" type="text" style="width:80px">
+	    <label for="bmks">us</label>
+	  </div>
+	 </div>
+	 <div class="radiodiv">
+	  <p>Buffer Access</p>
+	  <p>
+	    <label>
+	    <input class="with-gap" id="mmap" name="mmap" type="radio" checked>
+	    <span>MMAP mode</span>
+	    </label>
+	  </p>
+	  <p>
+	    <label>
+	    <input class="with-gap" id="rw" name="mmap" type="radio">
+	    <span>RW mode</span>
+	    </label>
+	  </p>
+	 </div>
+	</div>
+
+	</form>
+      </div>
+
+      <div id="decoder" class="tab-pane fade" role="tabpanel">
+	<ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#dsd">DSD</a></li>
+          <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#dvda">DVD-A</a></li>
+          <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#radio">Radio</a></li>
+        </ul>
+
+        <div class="tab-content">
+	  <div id="dsd" class="tab-pane fade show active" role="tabpanel">
+	    <div class="form-select">
+	    <label for="dsd_mode">DSD output mode</label>
+	    <select id="dsd_mode" style="width:120px">
+    	      <option value="0">PCM</option>
+    	      <option value="1">DoP</option>
+    	      <option id="dsd_n" value="2">Native DSD</option>
+    	    </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_mode_limit">DSD Mode limit</label>
+    	    <select id="dsd_mode_limit" style="width:120px">
+    	      <option value="0">DSD64</option>
+    	      <option value="1">DSD128</option>
+    	      <option value="2">DSD256</option>
+    	      <option value="3">DSD512</option>
+    	    </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_pcm_freq">PCM samplerate</label>
+            <select id="dsd_pcm_freq" style="width:120px">
+    	      <option value="0">44100</option>
+    	      <option value="1">88200</option>
+    	      <option value="2">176400</option>
+    	      <option value="3">352800</option>
+    	    </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_pcm_volume">PCM Volume</label>
+	    <select id="dsd_pcm_volume" style="width:120px"> 
+	      <option value="0">+0dB</option>
+	      <option value="1">+1dB</option>
+	      <option value="2">+2dB</option>
+	      <option value="3">+3dB</option>
+	      <option value="4">+4dB</option>
+	      <option value="5">+5dB</option>
+	      <option value="6">+6dB</option>
+	    </select>
+	    </div>
+
+	    <div class="switch">
+	      <label><div>PCM for multichannel</div>
+	      <input id="dsd_pcm_multi" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <div class="switch">
+	      <label><div>Full disk mode</div>
+	      <input id="sacd_full" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_to_pcm_mode">DSD to PCM converter</label>
+	    <select id="dsd_to_pcm_mode" style="width:180px">
+	      <option value="0">Multistage</option>
+	      <option value="1">Direct</option>
+	      <option value="2">FIR 30KHz</option>
+	      <option value="3">FIR 40KHz</option>
+	      <option value="4">FIR 50KHz</option>
+	      <option value="5">FIR 60KHz</option>
+	      <option value="6">FIR S-Audio Systems</option>
+            </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_area">Preferable Area</label>
+	    <select id="dsd_area" style="width:180px"> 
+	      <option value="0">None</option>
+	      <option value="1">Stereo</option>
+	      <option value="2">Multichannel</option>
+            </select>
+	    </div>
+	  </div>
+
+	  <div id="dvda" class="tab-pane fade" role="tabpanel">
+	    <div class="switch">
+	      <label><div>Don't load stereo downmixes</div>
+	      <input id="dvda_nomix" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <div class="form-select">
+	    <label for="dvda_area">Preferable Mode:</label>
+	    <select id="dvda_area" style="width:180px">
+	      <option value="0">None</option>
+	      <option value="1">Stereo</option>
+	      <option value="2">Multichannel</option>
+	    </select>
+	    </div>
+	  </div>
+
+	  <div id="radio" class="tab-pane fade" role="tabpanel">
+	    <div class="switch">
+	      <label><div>Load pictures:</div>
+	      <input id="radio_pict" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <input id="num_pics" type="text" maxlength="2" size="18"> (1 - 10)<br>
+	    API cx:  <input type="text" id="api_cx" style="width:200px;margin-top:6px"><br>
+	    API key:  <br><input type="text" id="api_key" style="width:420px;margin-top:6px"><br>
+	    <div class="switch">
+	      <label><div>query with:</div>
+	      <input id="radio_q" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <input id="radio_qv" type="text" maxlength="31" placeholder="album cover" size="18"><br>
+	    <div class="switch">
+	      <label><div>Autoplay:</div>
+	      <input id="radio_auto" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <div class="switch">
+	      <label><div>Use proxy server:</div>
+	      <input id="radio_proxy" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <input id="radio_proxy2" type="text" maxlength="31">
+            &nbsp;&nbsp;[user:pass@]server:port
+	    <div class="switch">
+	      <label><div>Custom User-Agent:</div>
+	      <input id="radio_ua" type="checkbox">
+	      <span class="lever"></span>
+	      </label>
+	    </div>
+	    <div><input id="radio_user" size="40" maxlength="127" type="text"></div>
+	    <div><br>Catalog Date (<span style="color:blue">local</span> / <span style="color:green">server</span>): <span id="catdate1" style="color:blue"></span> <span id="catdate2" style="color:green"></span><br><br>
+	    <button  class='btn btn-secondary' onclick="UpdateRadio(false)">Update Catalog</button> <button class='btn btn-secondary' onclick="UpdateRadio(true)">Replace Catalog</button>
+	    <br><span id='radwait' style="visibility:hidden">Please wait...</span>
+	    </div>
+	  </div>
+	</div>
+      </div>
+
+      <div id="dsp" class="tab-pane fade" role="tabpanel">
+        <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item active"><a href="#converter" class="nav-link active" data-toggle="tab">Converter</a></li>
+        <li class="nav-item"><a href="#resampler" class="nav-link" data-toggle="tab">Resampler</a></li>
+        <li class="nav-item"><a href="#convolver" class="nav-link" data-toggle="tab">Convolver</a></li>
+        </ul>
+	<div class="tab-content">
+	<div id="converter" class="tab-pane fade show active" role="tabpanel">
+	  <div>
+	    <div class="switch">
+	    <label><div>Convert multichannel to stereo</div>
+    	    <input id="check_multi" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	    <div class="switch">
+	    <label><div>Swap channels (stereo)</div>
+    	    <input id="check_swap" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	    <div class="switch">
+	    <label><div>Invert phase</div>
+	    <input id="check_phase" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	  </div>
+	  <div>
+            <hr>
+	    <div class="switch">
+	    <label><div>Convert PCM to DSD (converter by Mans Rullgard)</div>
+	    <input id="enable_dsd" type="checkbox">
+	    <span class="lever"></span>
+	    </label>
+	    </div>
+	    <div class="res1">
+	    <div class="form-select">
+	    <label for="dsd_filter" style="width:80px;">Filter</label>
+    	    <select id="dsd_filter" style="width:120px;">
+            <option  value="0">clans-4</option>
+            <option  value="1">clans-5</option>
+            <option  value="2">clans-6</option>
+            <option  value="3">clans-7</option>
+            <option  value="4">clans-8</option>
+            <option  value="5">sdm-4</option>
+            <option  value="6">sdm-5</option>
+            <option  value="7">sdm-6</option>
+            <option  value="8">sdm-7</option>
+            <option  value="9">sdm-8</option>
+    	    </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_rate" style="width:80px;">Rate</label>
+	    <select id="dsd_rate" style="width:120px;">
+            <option  value="0">DSD64</option>
+            <option  value="1">DSD128</option>
+            <option  value="2">DSD256</option>
+    	    </select>
+	    </div>
+	    </div>
+	    <div class="res2">
+	    <div class="form-select">
+	    <label for="dsd_output" style="width:80px;">Output</label>
+            <select id="dsd_output" style="width:120px;">
+                <option  value="0">DoP</option>
+                <option  id="sdm_n"  value="1">Native</option>
+            </select>
+	    </div>
+	    <div class="form-select">
+	    <label for="dsd_level" style="width:80px;">Level</label>
+	    <select id="dsd_level" style="width:120px;">
+            <option  value="0">0dB</option>
+            <option  value="1">-6dB</option> 
+            </select>
+	    </div>
+	    </div>
+	  <div class="switch">
+	  <label><div>Multi-thread mode</div>
+	  <input id="dsd_multithread" type="checkbox">
+	  <span class="lever"></span>
+	  </label>
+	  </div>
+	</div>
+      </div>
+
+      <div id="convolver" class="tab-pane fade" role="tabpanel">
+      	  <div class="switch">
+          <label><div>Enable convolver</div>
+          <input id="conv_en" type="checkbox">
+	  <span class="lever"></span>
+          </label>
+          </div>
+	  <span>Filters:</span>
+	  <p id="filters" style="height:50px;overflow-y:auto;margin:8px"></p>
+	 Select filter:  <input type="text" id="FilterNum" style="width:24px"><br><br>
+	 <p>Attenuation: <input style="width:300px;height:10px" id="db" onchange="AttChange(this.value)" type="range" min="-60" max="60" step="0.5">
+	 <span id="dbtx">0</span>dB</p>
+	  <p id="filtdesc"></p>
+   
+      </div>
+      <div id="resampler" class="tab-pane fade" role="tabpanel">
+        <p>SoXR 0.1.3</p>
+	<div style="display:inline-block">
+	<div class="res1">
+	<div class="form-select">
+	<label for="res_bf44">&lt; 44 KHz</label>
+        <select id="res_bf44"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+	</div>
+	<div class="form-select">
+	<label for="res44">44.1 KHz</label>
+	<select id="res44">
+          <option value="0">original</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+	</div>
+	<div class="form-select">
+	<label for="res48">48 KHz</label>
+	<select id="res48"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+        </div>
+	<div class="form-select">
+	<label for="res88">88.2 KHz</label>
+	<select id="res88"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+          </select>
+        </div>
+	<div class="form-select">
+	<label for="res96">96 KHz</label>
+	<select id="res96"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+          </select>
+	</div>
+	</div>
+	<div class="res2">
+	<div class="form-select">
+	<label for="res176">176.4 KHz</label>
+        <select id="res176"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+	</div>
+	<div class="form-select">
+	<label for="res192">192 KHz</label>
+        <select id="res192"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+	</div>
+	<div class="form-select">
+	<label for="res352">352.8 KHz</label>
+        <select id="res352"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="8">384 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+        </div>
+	<div class="form-select">
+	<label for="res384">384 KHz</label>
+        <select id="res384"> 
+          <option value="0">original</option>
+          <option value="1">44.1 KHz</option>
+          <option value="2">48 KHz</option>
+          <option value="3">88.2 KHz</option>
+          <option value="4">96 KHz</option>
+          <option value="5">176.4 KHz</option>
+          <option value="6">192 KHz</option>
+          <option value="7">352.8 KHz</option>
+          <option value="9">705.6 KHz</option>
+          <option value="10">768 KHz</option>
+        </select>
+	</div>
+	</div>
+	</div>
+    <hr>
+   <div class="form-select">
+   <label for="soxr_phase">Phase</label>
+   <select id="soxr_phase" style="width:180px"> 
+    <option value="0">Minimum phase</option>
+    <option value="1">Intermediate phase</option>
+    <option value="2">Linear phase</option>
+   </select>
+   </div>
+   <div class="switch">
+     <label><div>Steep filter (99%)</div>
+     <input id="soxr_filter" type="checkbox">
+     <span class="lever"></span>
+     </label>
+   </div>
+   <div class="switch">
+     <label><div>Ultra High Quality</div>
+     <input id="soxr_quality" type="checkbox">
+     <span class="lever"></span>
+     </label>
+   </div>
+   <div class="inputtext mb-0">
+	  <label for="att">Attenuate, dB &nbsp;-</label>
+	  <input id="att" class="val" type="text" style="width:40px;">
+	</div>
+   </div>
+    </div>
+</div>
+
+<div id="system" class="tab-pane fade" role="tabpanel">
+   <p>These options will be effective only for the root user:</p>
+    <div class="form-group mb-0">
+    <label for="priority" style="width:50%">Process Priority (0 - 99)</label>
+    <input id="priority" type="text" class="val" style="width:40px;">
+    </div>
+    <div class="form-group mb-0">
+    <label for="nice" style="width:50%">Process Nice (-20 - 19)</label>
+    <input id="nice" type="text" class="val" style="width:40px;">
+    </div>
+    <div class="switch">
+      <label><div>Lock memory</div>
+      <input id="check_memory" type="checkbox" disabled>
+      <span class="lever"></span>
+      </label>
+    </div>
+    <hr>
+    <div class="radiodiv">
+    <p>Selecting cores</p>
+    <p>
+    <label>
+    <input class="with-gap" id="cores0" type="radio" name="cores" disabled>
+    <span>Without selecting cores</span>
+    </label>
+    </p>
+    <p>
+    <label>
+    <input class="with-gap" id="cores1" type="radio" name="cores" checked>
+    <span>Single Core</span></label>
+    </p>
+    <p>
+    <label>
+    <input class="with-gap" id="cores2" type="radio" name="cores" disabled>
+    <span>Double Core</span></label>
+    </p>
+    </div>
+</div>
+
+<div id="status" class="tab-pane fade" role="tabpanel">
+<table>
+   <tr><th style="width:200px"></th><th></th></tr>
+   <tr><td>Root User :</td><td id="stat_root"></td></tr>
+   <tr><td>Used Cores :</td><td id="stat_cores"></td></tr>
+   <tr><td>Process Priority:</td><td id="stat_prio"></td></tr>
+   <tr><td>Process Nice:</td><td id="stat_nice"></td></tr>
+   <tr><td nowrap>Supports 16 bit output:</td><td id="stat_16bit"></td></tr>
+   <tr><td nowrap>Supports 24 bit output:</td><td id="stat_24bit"></td></tr>
+   <tr><td nowrap>Supports 32 bit output:</td><td id="stat_32bit"></td></tr>
+   <tr><td nowrap>Supports Native DSD:</td><td id="stat_dsd"></td></tr> 
+   <tr><td>Playing:</td><td id="stat_play"></td></tr>
+   <tr class="playing"><td>Playing file:</td><td id="stat_play_file"></td></tr>
+   <tr class="playing"><td>ALSA Period:</td><td id="stat_period_size"></td></tr>
+   <tr class="playing"><td>ALSA Buffer:</td><td id="stat_buffer_size"></td></tr>
+</table>
+</div>
+<div id="card" class="tab-pane fade" role="tabpanel">
+  <span>/etc/asound.conf:</span>
+  <p id="asound"></p>
+  <span>Available cards:</span>
+  <p id="cards"></p>
+  <label for="CardNum">Select card:</label>
+  <input type="text" id="CardNum" style="width:24px" disabled>
+</div>
+<div id="about" class="tab-pane fade" role="tabpanel">
+<p style="font-size:initial">
+     The Album Player for Linux is a free-distributed (Freeware) music file player for the Linux operating system (the x86, x64 and ARM platforms are supported).
+</p>
+<p style="color:lightblue;">
+     The supported file formats are: WAV, FLAC, APE, WavPack, ALAC, AIFF, AAC, OGG, MP3, MP4, DFF, DSF, OPUS, TAK, WMA, SACD ISO, and DVD-A. The output of DSD files is supported in the DSD, DoP, and PCM modes.
+</p>
+<p>
+     The playback process is characterized with an exceptionally low resources intake. It results with less interference and better conditions for quality sound playback.
+</p>
+<p>
+<ul>
+<li>Versions for another platform - <a href="http://albumplayer.ru/linux/english.html" target="_blank">http://albumplayer.ru/linux/english.html</a></li>
+<li>Versions for Windows - <a href="http://albumplayer.ru/english.html" target="_blank">http://albumplayer.ru/english.html</a></li>
+<li>Discussion thread - <a href='http://forum.doctorhead.ru/index.php?showtopic=8905'>http://forum.doctorhead.ru/index.php?showtopic=8905</a></li>
+</ul>
+</p>
+<p>
+<ul>
+<li>Programming - Igor Antonov</li>
+<li>Web-UI - dimas</li>
+</p>
+</div>
+
+   </div>
+  </div>
+ </div>
+
+ <div class="modal-footer">
+   <button type="button" class="btn btn-primary" onclick="SaveConfig()">Apply</button>
+   <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+ </div>
+
+ </div>
+ </div>
+</div>
+
+<script>
+Init();
+</script>
+</body>
+</html>

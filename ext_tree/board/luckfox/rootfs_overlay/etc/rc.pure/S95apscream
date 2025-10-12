@@ -1,0 +1,31 @@
+#!/bin/sh
+
+MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
+
+start() {
+    touch /var/log/apscream.log
+    ln -s -f /var/log/apscream.log /usr/apscream/apscream.log
+    printf "Starting APscream: "
+    cd /usr/apscream; ./apscream > /dev/null 2>&1 && echo "OK" || echo "FAIL"
+    sleep 0.5
+    sync
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
+    }
+stop() {
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
+    killall -9 apscream
+}
+restart() {
+	stop
+	start
+}
+case "$1" in
+  start|stop|restart)
+	"$1"
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

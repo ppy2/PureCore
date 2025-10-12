@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+ */
+
+/dts-v1/;
+
+#include "rv1106.dtsi"
+#include "rv1106_pll-ipc.dtsi"
+#include "rv1106-pinctrl.dtsi"
+/ {
+	model = "Luckfox Pico Max";
+	compatible = "rockchip,rv1106";
+
+};
+
+/*********I2S*************/
+&i2s0_8ch {
+	status = "okay";
+};
+
+/******EXT_AUDIO_CODEC*****/
+&mycodec {
+	status = "okay";
+};
+
+
+/**********SPI_FLASH**********/
+&sfc {
+	status = "okay";
+	flash@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <75000000>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <1>;
+	};
+	
+};
+
+
+/*********SERIAL_DEBUG_CONSOLE******/
+&fiq_debugger {
+	status = "okay";
+};
+
+
+/**********SDMMC**********/
+&sdmmc {
+	max-frequency = <50000000>;
+	no-sdio;
+	no-mmc;
+	bus-width = <4>;
+	cap-mmc-highspeed;
+	cap-sd-highspeed;
+	disable-wp;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc0_clk &sdmmc0_cmd &sdmmc0_det &sdmmc0_bus4>;
+	status = "disable";
+};
+
+/**********EMMC*************/
+&emmc {
+        status = "disable";
+};
+
+/**********ETH**********/
+&gmac {
+	status = "okay";
+};
+
+/**********USB**********/
+&usbdrd_dwc3 {
+	status = "okay";
+	dr_mode = "host";
+};
+
+/**********I2C**********/
+&i2c1 {
+ 	status = "okay";
+ 	pinctrl-0 = <&i2c1m1_xfer>;
+ 	clock-frequency = <100000>;
+ };
+&i2c3 {
+	status = "disable";
+	pinctrl-0 = <&i2c3m1_xfer>;
+	clock-frequency = <100000>;
+};
+
+/**********SPI**********/
+&spi0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0m0_pins>;
+	cs-gpios = <&gpio1 RK_PC0 1>;
+	// cs-gpios = <&gpio1 26 1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	spidev@0 {
+		compatible = "rockchip,spidev";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+	};
+};
+
+/******REAL_TIME_CLOCK******/
+&rtc {
+	status = "disable";
+};
+
+/*********TSADC*********/
+&tsadc {
+	status = "okay";
+};

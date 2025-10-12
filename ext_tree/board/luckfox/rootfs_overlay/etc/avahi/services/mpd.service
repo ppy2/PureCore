@@ -1,0 +1,10 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">PureFox MPD on %h</name>
+  <service>
+    <type>_mpd._tcp</type>
+    <port>6600</port>
+    <txt-record>protocol=1</txt-record>
+  </service>
+</service-group>

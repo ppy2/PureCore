@@ -1,0 +1,74 @@
+#!/bin/sh
+
+echo 1 > /sys/devices/platform/ffae0000.i2s/mute
+MIXER=`amixer 2>/dev/null| awk -F "'" 'NR==1 {print $2; exit}'`
+/usr/bin/amixer set "$MIXER" mute
+
+	if [ -f /data/ethaddr.txt ]; then
+	    MAC=`cat /data/ethaddr.txt`
+	else    
+	    OUI="BE10E0"
+	    SERIAL=$(grep -o 'Serial[[:space:]]*:[[:space:]]*[[:xdigit:]]*' /proc/cpuinfo | awk '{print $NF}')
+	    MAC_PART=$(echo "$SERIAL" | tail -c 7)
+	    MAC="${OUI}${MAC_PART}"
+	    MAC=$(echo "$MAC" | sed 's/\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)/\1:\2:\3:\4:\5:\6/')
+	    MAC=$(echo "$MAC" | tr '[:lower:]' '[:upper:]')
+	    echo $MAC > /data/ethaddr.txt
+	    chattr +i /data/ethaddr.txt
+	    sync
+	fi
+
+/sbin/ifconfig eth0 down
+/sbin/ifconfig eth0 hw ether $MAC
+/sbin/ifconfig eth0 up && /sbin/udhcpc -i eth0
+
+grep MCLK=1024 /etc/i2s.conf && echo 1024 > /sys/devices/platform/ffae0000.i2s/mclk_multiplier
+echo 100 >  /sys/devices/platform/ffae0000.i2s/premute_delay_ms 
+echo 300 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 
+echo 1 > /sys/devices/platform/ffae0000.i2s/dsd_physical_swap
+echo 0 > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap
+
+
+rcS()
+{
+	for i in /oem/usr/etc/init.d/S??* ;do
+
+		# Ignore dangling symlinks (if any).
+		[ ! -f "$i" ] && continue
+
+		case "$i" in
+			*.sh)
+				# Source shell script for speed.
+				(
+					trap - INT QUIT TSTP
+					set start
+					. $i
+				)
+				;;
+			*)
+				# No sh extension, so fork subprocess.
+				$i start
+				;;
+		esac
+	done
+}
+
+check_linker()
+{
+        [ ! -L "$2" ] && ln -sf $1 $2
+}
+
+}
+
+rcS
+
+ulimit -c unlimited
+echo "/data/core-%p-%e" > /proc/sys/kernel/core_pattern
+# echo 0 > /sys/devices/platform/rkcif-mipi-lvds/is_use_dummybuf
+
+echo 1 > /proc/sys/vm/overcommit_memory
+
+sysctl -p
+
+post_chk &
+

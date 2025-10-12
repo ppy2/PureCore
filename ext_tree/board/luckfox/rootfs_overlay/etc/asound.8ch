@@ -1,0 +1,17 @@
+pcm.!default {
+    type route
+    slave.pcm "hw:0,0"
+    ttable.0.0   1
+    ttable.1.1   1
+    ttable.2.2   1  
+    ttable.3.3   1  
+    ttable.4.4   1  
+    ttable.5.5   1  
+    ttable.6.6   1  
+    ttable.7.7   1  
+}
+
+ctl.!default {
+     type hw
+     card 0
+    }

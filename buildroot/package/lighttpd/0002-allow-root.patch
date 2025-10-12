@@ -1,0 +1,28 @@
+--- a/src/server.c	2025-01-10 07:12:08.000000000 +0300
++++ b/src/server.c	2025-10-08 17:28:13.559561517 +0300
+@@ -1801,11 +1801,6 @@
+ 				return -1;
+ 			}
+ 
+-			if (pwd->pw_uid == 0) {
+-				log_error(srv->errh, __FILE__, __LINE__,
+-				  "I will not set uid to 0.  Perhaps you should comment out server.username in lighttpd.conf\n");
+-				return -1;
+-			}
+ 
+ 			if (NULL == grp && NULL == (grp = getgrgid(pwd->pw_gid))) {
+ 				log_error(srv->errh, __FILE__, __LINE__,
+@@ -1814,13 +1809,6 @@
+ 			}
+ 		}
+ 
+-		if (NULL != grp) {
+-			if (grp->gr_gid == 0) {
+-				log_error(srv->errh, __FILE__, __LINE__,
+-				  "I will not set gid to 0.  Perhaps you should comment out server.groupname in lighttpd.conf\n");
+-				return -1;
+-			}
+-		}
+ 
+ 		/* 
+ 		 * Change group before chroot, when we have access

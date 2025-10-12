@@ -1,0 +1,16 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name>Qobuz Connect Static Proxy for PureFox</name>
+
+  <service-subset>
+    <name replace-wildcards="yes">Service on %h</name>
+    
+    <service>
+      <type>_qobuz-connect._tcp</type>
+      <port>8000</port>
+      <txt-record>type=SPEAKER</txt-record>
+      <txt-record>path=/</txt-record>
+    </service>
+  </service-subset>
+</service-group>

@@ -1,0 +1,11 @@
+menu "Custom packages"
+	source "../ext_tree/package/aprenderer/Config.in"
+	source "../ext_tree/package/aplayer/Config.in"
+	source "../ext_tree/package/naa/Config.in"
+	source "../ext_tree/package/roonready/Config.in"
+	source "../ext_tree/package/librespot/Config.in"
+	source "../ext_tree/package/apscream/Config.in"
+	source "../ext_tree/package/squeezeliteR2/Config.in"
+	source "../ext_tree/package/status-monitor/Config.in"
+	source "../ext_tree/package/qobuz-connect/Config.in"
+endmenu

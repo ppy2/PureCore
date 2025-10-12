@@ -1,0 +1,16 @@
+config BR2_PACKAGE_STATUS_MONITOR
+    bool "status-monitor"
+    help
+      PureFox system status monitor daemon.
+      
+      This package provides a lightweight C daemon that monitors
+      system status including audio services, ALSA configuration,
+      and volume levels. It writes status to a JSON file for
+      efficient web interface polling.
+      
+      Features:
+      - Monitors active audio services (NAA, RAAT, MPD, etc.)
+      - Tracks ALSA output configuration (I2S/USB)
+      - Reports volume and mute status
+      - Minimal CPU usage (C implementation)
+      - JSON output for web interface

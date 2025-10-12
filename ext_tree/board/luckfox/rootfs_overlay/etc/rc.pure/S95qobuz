@@ -1,0 +1,148 @@
+#!/bin/sh
+
+MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
+
+start() {
+	local mode="$1"
+
+	# Internet connection check function
+	check_internet() {
+	    # Check Google DNS availability via ping
+	    ping -c 1 -W 1 8.8.8.8 > /dev/null 2>&1
+	    return $?
+	}
+
+	# Check system time validity
+	check_time() {
+	    current_year=$(date +%Y)
+	    [ "$current_year" -gt 2020 ]
+	}
+
+	# Check if avahi is running
+	check_avahi() {
+	    pidof avahi-daemon > /dev/null 2>&1
+	}
+
+	start_time=$(date +%s)  # Remember start time
+	timeout=15              # Maximum wait time in seconds
+
+	echo "Checking prerequisites for Qobuz Connect..."
+
+	# Wait for network connectivity
+	echo "Waiting for internet connection..."
+	while true; do
+	    if check_internet; then
+	        echo "Internet connected."
+	        break
+	    fi
+
+	    current_time=$(date +%s)
+	    elapsed=$((current_time - start_time))
+	    if ((elapsed >= timeout)); then
+	        echo "Error: No internet access for $timeout seconds." >&2
+	        exit 1
+	    fi
+
+	    sleep 1
+	done
+    
+    # Check and fix system time if needed
+    if ! check_time; then
+        echo "System time appears incorrect, syncing..."
+        /etc/init.d/S48sntp start
+        sleep 2
+        if ! check_time; then
+            echo "Warning: System time may still be incorrect"
+        else
+            echo "System time synchronized."
+        fi
+    else
+        echo "System time is valid."
+    fi
+    
+    # Check avahi service
+    if ! check_avahi; then
+        echo "Avahi daemon not running, starting..."
+        /etc/init.d/S50avahi-daemon start
+        sleep 2
+        if ! check_avahi; then
+            echo "Error: Failed to start avahi daemon" >&2
+            exit 1
+        fi
+    fi
+    echo "Avahi daemon is running."
+    
+    # Check for existing PureFox qobuz-connect instances in network (skip on restart)
+    if [ "$mode" != "restart" ]; then
+        echo "Scanning for existing PureFox qobuz-connect instances..."
+        existing_instances=$(avahi-browse -t -r _qobuz-connect._tcp 2>/dev/null | grep -c "hostname.*PureFox\|hostname.*purefox")
+        if [ "$existing_instances" -gt 0 ]; then
+            echo "Found $existing_instances existing PureFox qobuz-connect instance(s) in network."
+            echo "Skipping startup to avoid conflicts."
+            echo "Use restart command to force restart if needed."
+            exit 0
+        fi
+        echo "No conflicting instances found."
+    else
+        echo "Restart mode - skipping network scan due to avahi cache delay."
+    fi
+    
+    printf "Starting Qobuz Connect: "
+        
+    # Determine output device based on current output setting
+    if [ -f /etc/output ] && grep -q "USB" /etc/output; then
+        OUTPUT_DEVICE="hw:1"
+    else
+        OUTPUT_DEVICE="default"
+    fi
+    
+    # Start qobuz-connect (no LD_PRELOAD needed, all parameters embedded)
+    /opt/qobuz-connect/qobuz-connect -o $OUTPUT_DEVICE > /dev/null 2>&1 &
+    sleep 2
+    
+    # Set high priority for better audio performance
+    pid=$(pidof qobuz-connect)
+    if [ -n "$pid" ]; then
+        renice -15 $pid 2>/dev/null
+        for tid in $(ls /proc/$pid/task/ 2>/dev/null); do
+            renice -15 $tid 2>/dev/null
+        done
+        echo "started (PID: $pid)"
+    else
+        echo "failed to start"
+        echo "Error log:"
+        cat /tmp/qobuz.log 2>/dev/null || echo "No log available"
+        exit 1
+    fi
+    
+    # Unmute audio output
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null || echo "No mixer controls available"
+    }
+
+stop() {
+    # Mute audio output
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null || echo "No mixer controls available"
+    pid=$(pidof qobuz-connect)
+    if [ -n "$pid" ]; then
+        kill -9 $pid
+        echo "Stopped qobuz-connect (PID: $pid)"
+    else
+        echo "qobuz-connect not running"
+    fi
+}
+restart() {
+	stop
+	start restart
+}
+case "$1" in
+  start|stop|restart)
+	"$1"
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+
+
