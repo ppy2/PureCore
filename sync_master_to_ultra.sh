@@ -112,7 +112,7 @@ if [ -z "$FILES_TO_SYNC" ]; then
     exit 0
 fi
 
-echo "Step 5: Checking out files from master..."
+echo "Step 5: Syncing files from master..."
 for file in $FILES_TO_SYNC; do
     if git cat-file -e master:"$file" 2>/dev/null; then
         echo "  [SYNC] $file"
