@@ -53,7 +53,7 @@ EXCLUDE_PATTERNS=(
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S94ioi2s$"
     
     # Platform-specific helper scripts (DTB switching - different for MAX/Ultra)
-    "^ext_tree/board/luckfox/rootfs_overlay/opt/2_.*\.sh$"
+    "^ext_tree/board/luckfox/rootfs_overlay/opt/2.*\.sh$"
     "^ext_tree/board/luckfox/rootfs_overlay/opt/export.sh$"
     "^ext_tree/board/luckfox/rootfs_overlay/opt/update.sh$"
 
