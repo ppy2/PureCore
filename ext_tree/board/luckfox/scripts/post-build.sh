@@ -26,15 +26,24 @@ wget https://curl.se/ca/cacert.pem -O $TARGET_DIR/etc/ssl/certs/ca-certificates.
 # Add www-data to audio group for ALSA access without sudo
 sed -i 's/^audio:x:29:upmpdcli$/audio:x:29:upmpdcli,www-data/' $TARGET_DIR/etc/group
 
-# Remove GDB Python helper files (only needed for debugging, they break strip)
+# Remove GDB Python helper files (they prevent buildroot's strip from working)
 find $TARGET_DIR -name "*-gdb.py" -delete
 
+# Strip external toolchain libraries (buildroot's target-finalize runs BEFORE post-build)
+# When packages are reinstalled, libraries are copied unstripped, so we strip them here
+STRIP_BIN="$HOST_DIR/opt/ext-toolchain/bin/arm-none-linux-gnueabihf-strip"
+if [ -f "$TARGET_DIR/lib/libstdc++.so.6.0.33" ] && file "$TARGET_DIR/lib/libstdc++.so.6.0.33" | grep -q "not stripped"; then
+    echo "Stripping external toolchain libraries..."
+    find $TARGET_DIR/lib -name "*.so*" -type f -exec $STRIP_BIN {} \; 2>/dev/null || true
+fi
+
 # Create SquashFS for Tidal libraries (MAX only - save rootfs space)
-if [ -d "$TARGET_DIR/usr/lib/tidal" ] && [ ! -f "$TARGET_DIR/usr/lib/tidal.sqfs" ]; then
+if [ -d "$TARGET_DIR/usr/lib/tidal" ] && [ "$(ls -A $TARGET_DIR/usr/lib/tidal/*.so* 2>/dev/null)" ]; then
     echo "Creating SquashFS image for Tidal..."
+    rm -f $TARGET_DIR/usr/lib/tidal.sqfs
     mksquashfs $TARGET_DIR/usr/lib/tidal $TARGET_DIR/usr/lib/tidal.sqfs -comp xz -b 256K -noappend
     echo "Removing original Tidal directory from rootfs..."
-    rm -f $TARGET_DIR/usr/lib/tidal/*
+    rm -rf $TARGET_DIR/usr/lib/tidal/*
 fi
 
 

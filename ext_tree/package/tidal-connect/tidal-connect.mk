@@ -7,6 +7,7 @@ define TIDAL_CONNECT_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/S95tidal $(TARGET_DIR)/etc/rc.pure/S95tidal
 	mkdir -p $(TARGET_DIR)/usr/lib/tidal
 	cp -a $(@D)/lib/*.so* $(TARGET_DIR)/usr/lib/tidal/
+	find $(TARGET_DIR)/usr/lib/tidal -name "*.so*" -type f -exec $(TARGET_STRIP) {} \;
 endef
 
 $(eval $(generic-package))
