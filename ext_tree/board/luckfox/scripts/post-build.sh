@@ -37,6 +37,13 @@ if [ -f "$TARGET_DIR/lib/libstdc++.so.6.0.33" ] && file "$TARGET_DIR/lib/libstdc
     find $TARGET_DIR/lib -name "*.so*" -type f -exec $STRIP_BIN {} \; 2>/dev/null || true
 fi
 
+# Compress large binaries with UPX (MAX only - save rootfs space)
+if command -v upx >/dev/null 2>&1; then
+    echo "Compressing binaries with UPX..."
+    find $TARGET_DIR/usr/bin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+    find $TARGET_DIR/usr/sbin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+fi
+
 # Create SquashFS for Tidal libraries (MAX only - save rootfs space)
 if [ -d "$TARGET_DIR/usr/lib/tidal" ] && [ "$(ls -A $TARGET_DIR/usr/lib/tidal/*.so* 2>/dev/null)" ]; then
     echo "Creating SquashFS image for Tidal..."
