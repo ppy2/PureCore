@@ -2,11 +2,26 @@
 
 set -ve
 
+MAINDIR=`pwd`
+
 export LINUX_DIR=`ls -d output/build/linux-main`
 
+# Copy kernel and DTB to binaries
+cp $LINUX_DIR/arch/arm/boot/zImage $BINARIES_DIR/
+cp $LINUX_DIR/arch/arm/boot/dts/rv1106_pll.dtb $BINARIES_DIR/
+
+# Copy DTBs to target
 cp $LINUX_DIR/arch/arm/boot/dts/rv1106_ext.dtb $TARGET_DIR/data/boot/1024_ext.dtb
 cp $LINUX_DIR/arch/arm/boot/dts/rv1106_pll.dtb $TARGET_DIR/data/boot/1024_pll.dtb
 cp $LINUX_DIR/arch/arm/boot/dts/rv1106_512_ext.dtb $TARGET_DIR/data/boot/512_ext.dtb
+
+cd $BINARIES_DIR
+# Create boot.img with zImage and DTB
+dd if=/dev/zero of=boot.img bs=1 count=0 seek=4194304
+dd if=zImage of=boot.img conv=notrunc
+dd if=rv1106_pll.dtb of=boot.img bs=1 seek=3932160 conv=notrunc
+rm zImage
+cd $MAINDIR
 
 rm -f $TARGET_DIR/etc/init.d/*shairport-sync
 rm -f $TARGET_DIR/etc/init.d/*upmpdcli
@@ -42,6 +57,7 @@ if command -v upx >/dev/null 2>&1; then
     echo "Compressing binaries with UPX..."
     find $TARGET_DIR/usr/bin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
     find $TARGET_DIR/usr/sbin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+    find $TARGET_DIR/usr/ap* -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
 fi
 
 # Create SquashFS for Tidal libraries (MAX only - save rootfs space)
