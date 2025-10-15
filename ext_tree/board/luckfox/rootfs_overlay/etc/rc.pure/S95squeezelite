@@ -3,7 +3,7 @@
 MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
 
 NAME=`hostname`_`ifconfig eth0 | awk '/inet addr/{print substr($2,6)}'`
-OPTIONS="-z -D 1000:u32be -r 44100-705600:1000 -a 400:3::0 -M $NAME"
+OPTIONS="-z -D 1000:u32le -r 44100-22579200:1000 -a 400:3::0 -M $NAME"
 
 start() {
         printf "Starting Squeezelite: "
