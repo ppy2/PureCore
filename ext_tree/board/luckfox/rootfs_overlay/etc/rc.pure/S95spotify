@@ -7,7 +7,7 @@ start() {
     printf "Starting Spotify: "
     NAME=`hostname`_`ifconfig eth0 | awk '/inet addr/{print substr($2,6)}'`
     # Force ALSA to use 44.1kHz for Spotify playback
-    /usr/bin/librespot --cache /tmp --cache-size-limit 64M --bitrate 320 --format S16 --backend alsa -R 100 --name $NAME > /dev/null 2>&1 &
+    /usr/bin/librespot --cache /tmp --cache-size-limit 64M --bitrate 320 -R 100 --name $NAME > /dev/null 2>&1 &
     sleep 1
     pid=$(pidof librespot)
     if [ -n "$pid" ]; then
