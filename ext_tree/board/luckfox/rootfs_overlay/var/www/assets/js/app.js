@@ -1439,6 +1439,7 @@ $(document).ready(function () {
                             setTimeout(function() {
                                 $button.hide();
                                 saveHiddenButtons();
+                                checkAndExpandButtons();
                             }, 1000);
                         }, 20);
                     }, 20);
@@ -1447,8 +1448,29 @@ $(document).ready(function () {
         }
     }
 
+    // Check if button pairs need to expand to full width
+    function checkAndExpandButtons() {
+        // Only on desktop (width > 500px)
+        if (window.innerWidth <= 500) return;
+        
+        // Check player-buttons container
+        const $playerButtons = $('.player-buttons');
+        const $visiblePlayerButtons = $playerButtons.find('button[data-service]:visible');
+        if ($visiblePlayerButtons.length === 1) {
+            $visiblePlayerButtons.css('width', '100%');
+        }
+        
+        // Check streaming-buttons container
+        const $streamingButtons = $('.streaming-buttons');
+        const $visibleStreamingButtons = $streamingButtons.find('button[data-service]:visible');
+        if ($visibleStreamingButtons.length === 1) {
+            $visibleStreamingButtons.css('width', '100%');
+        }
+    }
+
     // Load hidden buttons on page load
     loadHiddenButtons();
+    checkAndExpandButtons();
 
 });
 /* Cache bust version: 1753367744 */
