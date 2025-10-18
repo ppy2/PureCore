@@ -700,7 +700,7 @@ $(document).ready(function () {
 
     // Кастомный confirm диалог
     function customConfirm(message, callback) {
-        $('#confirm-message').text(message);
+        $('#confirm-message').html(message);
         $('#custom-confirm').addClass('show');
         
         // Обновляем текст кнопок на основе языка
@@ -1313,6 +1313,142 @@ $(document).ready(function () {
         openI2SModal();
         return false;
     });
+
+    // ===== SWIPE TO HIDE BUTTONS FUNCTIONALITY =====
+    const HIDDEN_BUTTONS_KEY = 'hiddenButtons';
+    let startX = 0;
+    let endX = 0;
+    const SWIPE_THRESHOLD = 100;
+
+    // Load hidden buttons from localStorage on page load
+    function loadHiddenButtons() {
+        const hidden = localStorage.getItem(HIDDEN_BUTTONS_KEY);
+        if (hidden) {
+            try {
+                const hiddenArray = JSON.parse(hidden);
+                hiddenArray.forEach(service => {
+                    $(`button[data-service="${service}"]`).hide();
+                });
+            } catch (e) {
+                console.error('Failed to parse hidden buttons:', e);
+            }
+        }
+    }
+
+    // Save hidden buttons to localStorage
+    function saveHiddenButtons() {
+        const hiddenButtons = [];
+        $('button[data-service]').each(function() {
+            if ($(this).is(':hidden')) {
+                hiddenButtons.push($(this).data('service'));
+            }
+        });
+        localStorage.setItem(HIDDEN_BUTTONS_KEY, JSON.stringify(hiddenButtons));
+    }
+
+    // Handle swipe gestures on player buttons (touch and mouse)
+    $('button[data-service]').each(function() {
+        const $button = $(this);
+        let isDragging = false;
+        
+        // Touch events
+        this.addEventListener('touchstart', function(e) {
+            startX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        this.addEventListener('touchend', function(e) {
+            endX = e.changedTouches[0].screenX;
+            handleSwipe($button);
+        }, { passive: true });
+
+        // Mouse events for desktop
+        $button.on('mousedown', function(e) {
+            startX = e.screenX;
+            isDragging = false;
+        });
+
+        $button.on('mousemove', function(e) {
+            if (e.buttons === 1) { // Left mouse button is pressed
+                isDragging = true;
+            }
+        });
+
+        $button.on('mouseup', function(e) {
+            if (isDragging) {
+                endX = e.screenX;
+                handleSwipe($button);
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            isDragging = false;
+        });
+    });
+
+    function handleSwipe($button) {
+        const swipeDistance = endX - startX;
+        
+        // Swipe left to hide
+        if (swipeDistance < -SWIPE_THRESHOLD) {
+            const serviceName = $button.text().trim();
+            const currentHost = window.location.hostname;
+            const resetUrl = `http://${currentHost}/default.php`;
+            
+            const hideText = {
+                'ru': 'Скрыть кнопку',
+                'en': 'Hide button',
+                'de': 'Schaltfläche ausblenden',
+                'fr': 'Masquer le bouton',
+                'zh': '隐藏按钮'
+            };
+            
+            const restoreText = {
+                'ru': 'Для восстановления всех кнопок откройте:',
+                'en': 'To restore all buttons, visit:',
+                'de': 'Um alle Schaltflächen wiederherzustellen, besuchen Sie:',
+                'fr': 'Pour restaurer tous les boutons, visitez:',
+                'zh': '要恢复所有按钮，请访问：'
+            };
+            
+            const message = `${hideText[currentLang] || hideText['en']} "${serviceName}"?<br><br>${restoreText[currentLang] || restoreText['en']}<br>${resetUrl}`;
+            
+            customConfirm(message, function(confirmed) {
+                if (confirmed) {
+                    const buttonHeight = $button.outerHeight(true);
+                    
+                    // Шаг 1: Фиксируем высоту БЕЗ transition
+                    $button.css({
+                        'height': buttonHeight + 'px',
+                        'overflow': 'hidden'
+                    });
+                    
+                    // Шаг 2: Через 20ms добавляем transition и запускаем обе анимации
+                    setTimeout(function() {
+                        $button.css({
+                            'transition': 'height 1s ease-in-out, margin 1s ease-in-out, opacity 1s ease, transform 1s ease, filter 1s ease'
+                        });
+                        
+                        // Шаг 3: Через 20ms запускаем распыление и схлопывание одновременно
+                        setTimeout(function() {
+                            $button.addClass('btn-dissolving');
+                            $button.css({
+                                'height': '0',
+                                'margin-top': '0',
+                                'margin-bottom': '0'
+                            });
+                            
+                            setTimeout(function() {
+                                $button.hide();
+                                saveHiddenButtons();
+                            }, 1000);
+                        }, 20);
+                    }, 20);
+                }
+            });
+        }
+    }
+
+    // Load hidden buttons on page load
+    loadHiddenButtons();
 
 });
 /* Cache bust version: 1753367744 */
