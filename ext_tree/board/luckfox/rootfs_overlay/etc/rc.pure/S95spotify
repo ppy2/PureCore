@@ -32,15 +32,17 @@ start() {
     NAME=`hostname`_`ifconfig eth0 | awk '/inet addr/{print substr($2,6)}'`
     # Force ALSA to use 44.1kHz for Spotify playback
     /usr/bin/librespot --cache /tmp --cache-size-limit 64M --bitrate 320 -R 100 --name $NAME > /dev/null 2>&1 &
-    sleep 0.1
+    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
+    
     pid=$(pidof librespot)
     if [ -n "$pid" ]; then
     renice -15 $pid
     for tid in $(ls /proc/$pid/task/); do
+        sleep 0.1
         renice -15 $tid
     done
     fi
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
+
     }
 stop() {
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null

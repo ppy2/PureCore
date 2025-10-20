@@ -52,7 +52,7 @@ diff -Naur original_dir/sound/soc/codecs/dummy-codec.c modified_dir/sound/soc/co
  };
 diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-18 18:11:17.688843885 +0300
++++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-08 22:46:48.056357108 +0300
 @@ -4,18 +4,14 @@
   *
   * Copyright (c) 2018 Rockchip Electronics Co. Ltd.
@@ -955,7 +955,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -446,2088 +603,3265 @@
+@@ -446,2088 +603,3260 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -1300,19 +1300,14 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* Delay already performed inside trigger_stop_mute */
 +    }
 +    
-+    /* First stop DMA to prevent new data, keep I2S running to flush zeros */
-+    rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 0);
-+    
-+    /* Give SRC4192 time to process final data/zeros and clear internal buffer */
-+    if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-+        mdelay(100);  /* 100ms to flush SRC4192 internal FIFO */
-+    }
-+    
-+    /* Now stop I2S transmission (BCLK/DATA) */
++    /* First stop transmission (BCLK/DATA), then DMA */
 +    if (i2s_tdm->clk_trcm)
 +        rockchip_i2s_tdm_xfer_trcm_stop(i2s_tdm);
 +    else
 +        rockchip_i2s_tdm_xfer_stop(i2s_tdm, stream, false);
++    
++    /* Then stop DMA */
++    rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 0);
 +    
 +    /* Only logging, no mute state change */
 +    if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -5920,21 +5915,3 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -MODULE_DEVICE_TABLE(of, rockchip_i2s_tdm_match);
 +MODULE_DEVICE_TABLE(of, rockchip_i2s_tdm_match);
 \ No newline at end of file
-diff -Naur original_dir/sound/usb/pcm.c modified_dir/sound/usb/pcm.c
---- original_dir/sound/usb/pcm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/usb/pcm.c	2025-10-08 23:10:51.335144300 +0300
-@@ -1139,10 +1139,10 @@
- 				SNDRV_PCM_INFO_INTERLEAVED |
- 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
- 				SNDRV_PCM_INFO_PAUSE,
--	.buffer_bytes_max =	1024 * 1024,
--	.period_bytes_min =	64,
--	.period_bytes_max =	512 * 1024,
--	.periods_min =		2,
-+	.buffer_bytes_max =	8 * 1024 * 1024,
-+	.period_bytes_min =	32768,
-+	.period_bytes_max =	2 *1024 * 1024,
-+	.periods_min =		8,
- 	.periods_max =		1024,
- };
- 
