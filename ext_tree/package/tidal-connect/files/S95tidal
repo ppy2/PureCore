@@ -20,7 +20,7 @@ start() {
     --clientid "VCjoaRrbaMU005Tk" \
     > /dev/null 2>&1 < /dev/null &
     ) &
-    sleep 1
+    sleep 0.1
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
     pid=$(pidof tidalconnect)
     if [ -n "$pid" ]; then

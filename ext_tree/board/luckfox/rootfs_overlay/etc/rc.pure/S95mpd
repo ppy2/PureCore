@@ -15,7 +15,7 @@ start() {
     /usr/bin/upmpdcli $DAEMON_ARGS
     sleep 0.5
     /usr/bin/mpd
-    sleep 0.5
+    sleep 0.1
     pid=$(pidof /usr/bin/mpd)
     if [ -n "$pid" ]; then
     renice -15 $pid

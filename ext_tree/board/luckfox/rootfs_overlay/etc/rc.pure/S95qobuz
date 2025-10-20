@@ -98,8 +98,7 @@ start() {
     
     # Start qobuz-connect (no LD_PRELOAD needed, all parameters embedded)
     /opt/qobuz-connect/qobuz-connect -o $OUTPUT_DEVICE > /dev/null 2>&1 &
-    sleep 2
-    
+    sleep 0.1
     # Set high priority for better audio performance
     pid=$(pidof qobuz-connect)
     if [ -n "$pid" ]; then

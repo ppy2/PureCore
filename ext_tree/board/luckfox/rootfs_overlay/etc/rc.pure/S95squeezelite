@@ -8,7 +8,7 @@ OPTIONS="-z -D 1000:u32le -r 44100-22579200:1000 -a 400:3::0 -M $NAME"
 start() {
         printf "Starting Squeezelite: "
 	/usr/bin/squeezelite $OPTIONS
-        sleep 0.5
+        sleep 0.1
         pid=$(pidof squeezelite)
         if [ -n "$pid" ]; then
         renice -15 $pid

@@ -544,6 +544,19 @@ $(document).ready(function () {
     $('.btn-custom').click(function(e) {
         if ($(e.target).is('a') || $(e.target).is('img')) return true;
         if (!$(this).data('service') || $(this).hasClass('active')) return;
+        
+        // Блокируем клики если уже идёт переключение
+        if (isServiceSwitching) {
+            const busyText = {
+                'ru': 'Идёт переключение плеера, подождите...',
+                'en': 'Player switch in progress, please wait...',
+                'de': 'Player-Wechsel läuft, bitte warten...',
+                'fr': 'Changement de lecteur en cours, veuillez patienter...',
+                'zh': '播放器切换中，请稍候...'
+            };
+            customAlert(busyText[currentLang] || busyText['en']);
+            return;
+        }
 
         const service = $(this).data('service');
         forceStatusCheck(); // Принудительная проверка при клике

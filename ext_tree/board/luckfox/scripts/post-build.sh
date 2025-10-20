@@ -53,12 +53,12 @@ if [ -f "$TARGET_DIR/lib/libstdc++.so.6.0.33" ] && file "$TARGET_DIR/lib/libstdc
 fi
 
 # Compress large binaries with UPX (MAX only - save rootfs space)
-if command -v upx >/dev/null 2>&1; then
-    echo "Compressing binaries with UPX..."
-    find $TARGET_DIR/usr/bin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
-    find $TARGET_DIR/usr/sbin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
-    find $TARGET_DIR/usr/ap* -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
-fi
+#if command -v upx >/dev/null 2>&1; then
+#    echo "Compressing binaries with UPX..."
+#    find $TARGET_DIR/usr/bin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+#    find $TARGET_DIR/usr/sbin -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+#    find $TARGET_DIR/usr/ap* -type f -size +500k -executable ! -name "*.so*" -exec upx --best --lzma {} \; 2>/dev/null || true
+#fi
 
 # Create SquashFS for Tidal libraries (MAX only - save rootfs space)
 if [ -d "$TARGET_DIR/usr/lib/tidal" ] && [ "$(ls -A $TARGET_DIR/usr/lib/tidal/*.so* 2>/dev/null)" ]; then

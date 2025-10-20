@@ -3,7 +3,9 @@ header('Content-Type: application/json; charset=utf-8');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-
+// Lock file to prevent concurrent service switches
+$lockfile = '/tmp/service_switch.lock';
+$lock_fp = null; // Lock file pointer
 
 function logMessage($message) {
     error_log("[Player Manager] " . $message);
@@ -14,6 +16,34 @@ function executeCommand($command) {
     $output = shell_exec("/usr/bin/sudo $command 2>&1");
     logMessage("Output: " . trim((string)$output));
     return trim((string)$output);
+}
+
+function acquireLock($lockfile) {
+    global $lock_fp;
+    $lock_fp = fopen($lockfile, 'c');
+    if (!$lock_fp) {
+        throw new Exception("Cannot open lock file");
+    }
+    
+    // Non-blocking exclusive lock
+    if (!flock($lock_fp, LOCK_EX | LOCK_NB)) {
+        fclose($lock_fp);
+        $lock_fp = null;
+        throw new Exception("Service switch already in progress, please wait");
+    }
+    
+    logMessage("Lock acquired");
+    return $lock_fp;
+}
+
+function releaseLock() {
+    global $lock_fp;
+    if ($lock_fp) {
+        flock($lock_fp, LOCK_UN);
+        fclose($lock_fp);
+        $lock_fp = null;
+        logMessage("Lock released");
+    }
 }
 
 $players = [
@@ -44,9 +74,13 @@ try {
 
     logMessage("Request to start player: $player_to_start");
 
+    // Acquire lock to prevent concurrent switches
+    acquireLock($lockfile);
+
     // Check script existence
     $script_path = "/etc/rc.pure/{$players[$player_to_start]['script']}";
     if (!file_exists($script_path)) {
+        releaseLock();
         throw new Exception("Player script not found: $script_path");
     }
 
@@ -67,18 +101,39 @@ try {
     // Send D-Bus signal about service change for instant update
     executeCommand("/opt/dbus_notify ServiceChanged \"$player_to_start\"");
 
-    // Check startup
-//    $check = executeCommand("/usr/bin/pgrep -x {$players[$player_to_start]['process']}");
-//    if (empty($check)) {
-//        throw new Exception("Failed to start player: $player_to_start. Output: $start_output");
-//    }
+    // Wait for system_monitor to confirm player started (up to 10 seconds)
+    $confirmed = false;
+    for ($i = 0; $i < 20; $i++) {
+        $status_file = '/tmp/system_status.json';
+        if (file_exists($status_file)) {
+            $content = @file_get_contents($status_file);
+            if ($content) {
+                $status = @json_decode($content, true);
+                if ($status && isset($status['active_service']) && $status['active_service'] === $player_to_start) {
+                    $confirmed = true;
+                    logMessage("Player $player_to_start confirmed by system_monitor");
+                    break;
+                }
+            }
+        }
+        usleep(500000); // 500ms
+    }
+
+    // Release lock after confirmation or timeout
+    releaseLock();
+
+    if (!$confirmed) {
+        logMessage("Warning: Player $player_to_start not confirmed by system_monitor within 10s");
+    }
 
     echo json_encode([
         'status' => 'success',
-        'message' => "Successfully started $player_to_start"
+        'message' => "Successfully started $player_to_start",
+        'confirmed' => $confirmed
     ]);
 
 } catch (Exception $e) {
+    releaseLock();
     logMessage("Error: " . $e->getMessage());
     echo json_encode([
         'status' => 'error',
