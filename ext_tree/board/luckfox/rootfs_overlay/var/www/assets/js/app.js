@@ -599,23 +599,14 @@ $(document).ready(function () {
             data: { service: service },
             timeout: 15000,
             success: function() {
-                // Даем время на старт сервиса - увеличенное время для двухэтапных запусков
-                const initialDelay = (service === 'qobuz') ? 5000 : (service === 'tidalconnect') ? 4000 : 2000;
+                console.log('Команда переключения на', service, 'отправлена, начинаем проверку...');
                 
-                console.log('Команда переключения на', service, 'отправлена, ждем', initialDelay, 'мс...');
-                if (service === 'qobuz') {
-                    console.log('Qobuz: используется максимальная задержка для двухэтапного запуска (пробный + рабочий)');
-                } else if (service === 'tidalconnect') {
-                    console.log('Tidal: используется увеличенная задержка для двухэтапного запуска');
-                }
-                
-                // ДОБАВЛЕНА начальная задержка - даем сервису время запуститься!
-                setTimeout(() => {
-                    const checkInterval = POLLING_CONFIG.SWITCHING_INTERVAL;
-                    let checkCount = 0;
-                    const maxChecks = 60; // 30 секунд максимум
+                // Сразу начинаем проверку без задержки
+                const checkInterval = 500; // 500ms между проверками
+                let checkCount = 0;
+                const maxChecks = 40; // 20 секунд максимум
 
-                    function checkServiceStatusChange() {
+                function checkServiceStatusChange() {
                         $.ajax({
                             url: 'status_fast.php', // Используем оптимизированный запрос
                             method: 'GET',
@@ -690,10 +681,8 @@ $(document).ready(function () {
                         });
                     }
 
-                    // Мониторинг удален - полагаемся на polling
-
-                    checkServiceStatusChange();
-                }, initialDelay); // Используем адаптивную задержку
+                // Запускаем проверку сразу
+                checkServiceStatusChange();
             },
             error: function(xhr, status, error) {
                 console.error('AJAX error switching to', service, ':', status, error, 'Response:', xhr.responseText);
@@ -1107,10 +1096,9 @@ $(document).ready(function () {
         // Первая проверка статуса
         forceStatusCheck();
         
-        // Регулярный polling каждые 3 секунды - используем быстрый запрос
+        // Регулярный polling каждые 3 секунды
         statusInterval = setInterval(function() {
             if (!isServiceSwitching && !isVolumeChanging) {
-                // Обычный мониторинг через быстрый status_fast.php (C-monitor)
                 $.ajax({
                     url: 'status_fast.php',
                     method: 'GET',
