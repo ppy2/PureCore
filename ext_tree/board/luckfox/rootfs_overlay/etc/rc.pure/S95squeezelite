@@ -10,24 +10,24 @@ DSD_FORMAT="u32le"  # Default for most DACs
 # Detect audio device from asound.conf
 AUDIO_DEV="default"
 if [ -f /etc/asound.conf ]; then
-    CARD_NUM=$(grep "^card" /etc/asound.conf | head -1 | awk '{print $2}')
-    if [ -n "$CARD_NUM" ] && [ -d "/proc/asound/card$CARD_NUM" ]; then
-        AUDIO_DEV="hw:$CARD_NUM,0"
-    fi
+  CARD_NUM=$(grep "^card" /etc/asound.conf | head -1 | awk '{print $2}')
+  if [ -n "$CARD_NUM" ] && [ -d "/proc/asound/card$CARD_NUM" ]; then
+      AUDIO_DEV="hw:$CARD_NUM,0"
+  fi
 fi
-
+  
 # Get supported formats from device
 HW_PARAMS=$(aplay -v -D "$AUDIO_DEV" --dump-hw-params /dev/zero 2>&1)
-
+ 
 # Check for DSD formats in order of preference (BE first for native DSD DACs)
 if echo "$HW_PARAMS" | grep -q "DSD_U32_BE"; then
-    DSD_FORMAT="u32be"
-elif echo "$HW_PARAMS" | grep -q "DSD_U32_LE"; then
-    DSD_FORMAT="u32le"
-elif echo "$HW_PARAMS" | grep -q "DSD_U16_BE"; then
-    DSD_FORMAT="u16be"
-elif echo "$HW_PARAMS" | grep -q "DSD_U16_LE"; then
-    DSD_FORMAT="u16le"
+  DSD_FORMAT="u32be"
+  elif echo "$HW_PARAMS" | grep -q "DSD_U32_LE"; then
+  DSD_FORMAT="u32le"
+  elif echo "$HW_PARAMS" | grep -q "DSD_U16_BE"; then
+  DSD_FORMAT="u16be"
+  elif echo "$HW_PARAMS" | grep -q "DSD_U16_LE"; then
+  DSD_FORMAT="u16le"
 fi
 
 OPTIONS="-z -D 1000:$DSD_FORMAT -r 44100-22579200:1000 -a 400:3::0 -M $NAME"
@@ -35,6 +35,7 @@ OPTIONS="-z -D 1000:$DSD_FORMAT -r 44100-22579200:1000 -a 400:3::0 -M $NAME"
 start() {
         printf "Starting Squeezelite: "
 	/usr/bin/squeezelite $OPTIONS
+	sleep 0.1
         pid=$(pidof squeezelite)
         if [ -n "$pid" ]; then
         renice -15 $pid

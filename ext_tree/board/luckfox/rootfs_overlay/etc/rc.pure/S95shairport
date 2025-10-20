@@ -6,7 +6,7 @@ MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
 start() {
 	printf "Starting shairport-sync: "
 	/usr/bin/shairport-sync -d
-
+	sleep 0.1
         pid=$(pidof shairport-sync)
         if [ -n "$pid" ]; then
         renice -15 $pid

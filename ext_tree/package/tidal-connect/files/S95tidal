@@ -26,6 +26,7 @@ start() {
     if [ -n "$pid" ]; then
     renice -15 $pid
     for tid in $(ls /proc/$pid/task/); do
+        sleep 0.1
         renice -15 $tid
     done
     fi
