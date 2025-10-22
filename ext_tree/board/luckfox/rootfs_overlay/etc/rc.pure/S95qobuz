@@ -96,24 +96,11 @@ start() {
         OUTPUT_DEVICE="default"
     fi
     
+    renice -15 $$ 
     # Start qobuz-connect (no LD_PRELOAD needed, all parameters embedded)
     /opt/qobuz-connect/qobuz-connect -o $OUTPUT_DEVICE > /dev/null 2>&1 &
     sleep 0.1
     # Set high priority for better audio performance
-    pid=$(pidof qobuz-connect)
-    if [ -n "$pid" ]; then
-        renice -15 $pid 2>/dev/null
-        for tid in $(ls /proc/$pid/task/ 2>/dev/null); do
-            sleep 0.1
-            renice -15 $tid 2>/dev/null
-        done
-        echo "started (PID: $pid)"
-    else
-        echo "failed to start"
-        echo "Error log:"
-        cat /tmp/qobuz.log 2>/dev/null || echo "No log available"
-        exit 1
-    fi
     
     # Unmute audio output
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null || echo "No mixer controls available"

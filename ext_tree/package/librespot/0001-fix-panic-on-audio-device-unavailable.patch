@@ -1,0 +1,77 @@
+--- a/playback/src/audio_backend/rodio.rs
++++ b/playback/src/audio_backend/rodio.rs
+@@ -1,4 +1,5 @@
+ use std::process::exit;
++use std::sync::atomic::{AtomicU32, Ordering};
+ use std::thread;
+ use std::time::Duration;
+ 
+@@ -74,6 +75,7 @@
+ pub struct RodioSink {
+     rodio_sink: rodio::Sink,
+     _stream: rodio::OutputStream,
++    write_errors: AtomicU32,
+ }
+ 
+ fn list_formats(device: &cpal::Device) {
+@@ -219,12 +221,21 @@
+         host.id().name()
+     );
+ 
+-    let (sink, stream) = create_sink(&host, device, format).unwrap();
++    let (sink, stream) = match create_sink(&host, device, format) {
++        Ok(result) => result,
++        Err(e) => {
++            error!("FATAL: Failed to create audio sink: {:?}", e);
++            error!("Audio device is unavailable or disconnected.");
++            error!("Librespot cannot continue without audio output. Exiting to prevent 100% CPU loop.");
++            std::process::exit(1);
++        }
++    };
+ 
+     debug!("Rodio sink was created");
+     RodioSink {
+         rodio_sink: sink,
+         _stream: stream,
++        write_errors: AtomicU32::new(0),
+     }
+ }
+ 
+@@ -250,15 +261,37 @@
+             SAMPLE_RATE,
+             samples_f32,
+         );
++        
++        let error_count = self.write_errors.load(Ordering::Relaxed);
++        if error_count > 50 {
++            error!("FATAL: Too many consecutive write errors ({}), audio device likely disconnected. Exiting.", error_count);
++            std::process::exit(1);
++        }
++        
+         self.rodio_sink.append(source);
+ 
+         // Chunk sizes seem to be about 256 to 3000 ish items long.
+         // Assuming they're on average 1628 then a half second buffer is:
+         // 44100 elements --> about 27 chunks
++        let mut loop_count = 0;
++        let start_len = self.rodio_sink.len();
+         while self.rodio_sink.len() > 26 {
+             // sleep and wait for rodio to drain a bit
+             thread::sleep(Duration::from_millis(10));
++            
++            loop_count += 1;
++            
++            if loop_count % 10 == 0 && self.rodio_sink.len() >= start_len {
++                self.write_errors.fetch_add(1, Ordering::Relaxed);
++            }
++            
++            if loop_count > 100 {
++                error!("FATAL: Audio sink stuck for >1s (len: {}). Device likely disconnected. Exiting.", self.rodio_sink.len());
++                std::process::exit(1);
++            }
+         }
++        
++        self.write_errors.store(0, Ordering::Relaxed);
+         Ok(())
+     }
+ }

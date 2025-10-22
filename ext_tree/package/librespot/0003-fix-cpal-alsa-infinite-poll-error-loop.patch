@@ -1,0 +1,58 @@
+--- a/VENDOR/cpal/src/host/alsa/mod.rs	2025-10-21 13:05:13.535082662 +0300
++++ b/VENDOR/cpal/src/host/alsa/mod.rs	2025-10-21 13:05:58.096155195 +0300
+@@ -592,13 +592,27 @@
+     boost_current_thread_priority(stream.conf.buffer_size, stream.conf.sample_rate);
+ 
+     let mut ctxt = StreamWorkerContext::new(&timeout);
++    let mut consecutive_errors = 0u32;
++    const MAX_CONSECUTIVE_ERRORS: u32 = 100;
++    
+     loop {
++        let mut had_error = false;
+         let flow =
+             poll_descriptors_and_prepare_buffer(&rx, stream, &mut ctxt).unwrap_or_else(|err| {
++                had_error = true;
++                consecutive_errors += 1;
++                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
++                    eprintln!("FATAL: cpal ALSA input stream: {} consecutive errors, device likely disconnected. Exiting.", consecutive_errors);
++                    std::process::exit(1);
++                }
+                 error_callback(err.into());
+                 PollDescriptorsFlow::Continue
+             });
+ 
++        if !had_error {
++            consecutive_errors = 0;
++        }
++
+         match flow {
+             PollDescriptorsFlow::Continue => {
+                 continue;
+@@ -645,13 +659,27 @@
+     boost_current_thread_priority(stream.conf.buffer_size, stream.conf.sample_rate);
+ 
+     let mut ctxt = StreamWorkerContext::new(&timeout);
++    let mut consecutive_errors = 0u32;
++    const MAX_CONSECUTIVE_ERRORS: u32 = 100;
++    
+     loop {
++        let mut had_error = false;
+         let flow =
+             poll_descriptors_and_prepare_buffer(&rx, stream, &mut ctxt).unwrap_or_else(|err| {
++                had_error = true;
++                consecutive_errors += 1;
++                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
++                    eprintln!("FATAL: cpal ALSA output stream: {} consecutive errors, device likely disconnected. Exiting.", consecutive_errors);
++                    std::process::exit(1);
++                }
+                 error_callback(err.into());
+                 PollDescriptorsFlow::Continue
+             });
+ 
++        if !had_error {
++            consecutive_errors = 0;
++        }
++
+         match flow {
+             PollDescriptorsFlow::Continue => continue,
+             PollDescriptorsFlow::XRun => {

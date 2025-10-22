@@ -3,6 +3,7 @@
 MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
 
 start() {
+    renice -10 $$ 
     printf "Starting mpd: "
     mkdir -p /var/cache/
     ln -s /opt/upmpdcli /var/cache/
@@ -15,15 +16,6 @@ start() {
     /usr/bin/upmpdcli $DAEMON_ARGS
     sleep 0.5
     /usr/bin/mpd
-    sleep 0.1
-    pid=$(pidof /usr/bin/mpd)
-    if [ -n "$pid" ]; then
-    renice -15 $pid
-    for tid in $(ls /proc/$pid/task/); do
-        sleep 0.1
-        renice -15 $tid
-    done
-    fi
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
     }
 stop() {

@@ -5,16 +5,9 @@ MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
 
 start() {
 	printf "Starting shairport-sync: "
+	renice -15 $$ 
 	/usr/bin/shairport-sync -d
-	sleep 0.1
-        pid=$(pidof shairport-sync)
-        if [ -n "$pid" ]; then
-        renice -15 $pid
-        for tid in $(ls /proc/$pid/task/); do
-            sleep 0.1
-            renice -15 $tid
-        done
-        fi
+
 	[ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
     }
 stop() {

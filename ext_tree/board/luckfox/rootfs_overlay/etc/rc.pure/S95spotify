@@ -14,48 +14,40 @@ start() {
     fi
     [ -z "$CARD_NUM" ] && CARD_NUM=0
     
+    # Check if sound card exists before starting librespot
+    if [ ! -d "/proc/asound/card$CARD_NUM" ]; then
+        echo "ERROR: Sound card $CARD_NUM not found (configured in /etc/asound.conf but device missing)"
+        echo "Available cards:"
+        ls -d /proc/asound/card* 2>/dev/null || echo "  No sound cards detected"
+        echo "Librespot will panic with 100% CPU if started without audio device. Aborting."
+        exit 1
+    fi
+    
     # Wait for sound device to be free (up to 10 seconds)
     RETRY=0
     while [ $RETRY -lt 10 ]; do
         if ! fuser /dev/snd/pcmC${CARD_NUM}* >/dev/null 2>&1; then
             break
         fi
-        logger -t spotify "Sound card $CARD_NUM busy, waiting... ($RETRY/10)"
+        logger -t spotify "Sound card $CARD_NUM busy, waiting... ($RETRY/10)" 2>/dev/null || true
         sleep 1
         RETRY=$((RETRY + 1))
     done
     
-    if [ $RETRY -eq 5 ]; then
-        logger -t spotify "Sound card still busy after 5s, starting anyway (may cause CPU overload)"
+    if [ $RETRY -eq 10 ]; then
+        logger -t spotify "ERROR: Sound card still busy after 10s, cannot start librespot" 2>/dev/null || true
+        exit 1
     fi
     
     NAME=`hostname`_`ifconfig eth0 | awk '/inet addr/{print substr($2,6)}'`
-    # Force ALSA to use 44.1kHz for Spotify playback
+    renice -15 $$ 
     /usr/bin/librespot --cache /tmp --cache-size-limit 64M --bitrate 320 -R 100 --name $NAME > /dev/null 2>&1 &
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
-    sleep 0.1    
-    pid=$(pidof librespot)
-    if [ -n "$pid" ]; then
-    renice -15 $pid
-    for tid in $(ls /proc/$pid/task/); do
-        sleep 0.1
-        renice -15 $tid
-    done
-    fi
+}
 
-    }
 stop() {
     [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
-
-    # Try graceful stop first
-    killall librespot 2>/dev/null
-    sleep 1
-
-    # Force kill if still running (handles 100% CPU hang case)
-    if pidof librespot >/dev/null; then
-        logger -t spotify "Librespot not responding, forcing kill"
-        killall -9 librespot
-    fi
+    killall -9 librespot 2>/dev/null
 }
 restart() {
 	stop

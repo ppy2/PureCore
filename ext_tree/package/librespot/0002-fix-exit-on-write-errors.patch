@@ -1,0 +1,28 @@
+--- a/playback/src/player.rs	2025-10-20 22:20:25.267497208 +0300
++++ b/playback/src/player.rs	2025-10-20 22:20:25.267497208 +0300
+@@ -91,6 +91,7 @@
+ }
+ 
+ static PLAYER_COUNTER: AtomicUsize = AtomicUsize::new(0);
++static WRITE_ERROR_COUNTER: AtomicUsize = AtomicUsize::new(0);
+ 
+ enum PlayerCommand {
+     Load {
+@@ -1673,7 +1674,17 @@
+ 
+                     if let Err(e) = self.sink.write(packet, &mut self.converter) {
+                         error!("{e}");
++                        
++                        let error_count = WRITE_ERROR_COUNTER.fetch_add(1, Ordering::SeqCst);
++                        if error_count >= 10 {
++                            error!("FATAL: Audio sink write failed {} times consecutively. Device likely disconnected. Exiting.", error_count + 1);
++                            std::process::exit(1);
++                        }
++                        
+                         self.handle_pause();
++                    } else {
++                        // Reset counter on successful write
++                        WRITE_ERROR_COUNTER.store(0, Ordering::SeqCst);
+                     }
+                 }
+             }

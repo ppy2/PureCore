@@ -34,16 +34,8 @@ OPTIONS="-z -D 1000:$DSD_FORMAT -r 44100-22579200:1000 -a 400:3::0 -M $NAME"
 
 start() {
         printf "Starting Squeezelite: "
+	renice -15 $$ 
 	/usr/bin/squeezelite $OPTIONS
-	sleep 0.1
-        pid=$(pidof squeezelite)
-        if [ -n "$pid" ]; then
-        renice -15 $pid
-        for tid in $(ls /proc/$pid/task/); do
-            sleep 0.1
-            renice -15 $tid
-        done
-        fi
         [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
     }
 stop() {
