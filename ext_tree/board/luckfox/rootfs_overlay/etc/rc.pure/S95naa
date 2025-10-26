@@ -1,14 +1,10 @@
 #!/bin/sh
 
-MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
-
 start() {
     printf "Starting NAA: "
     /usr/sbin/networkaudiod > /dev/null 2>&1 &
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null
     }
 stop() {
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
     killall -9 networkaudiod
 }
 restart() {

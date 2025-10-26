@@ -1,6 +1,5 @@
 #!/bin/sh
 
-MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
 
 start() {
 	local mode="$1"
@@ -100,15 +99,9 @@ start() {
     # Start qobuz-connect (no LD_PRELOAD needed, all parameters embedded)
     /opt/qobuz-connect/qobuz-connect -o $OUTPUT_DEVICE > /dev/null 2>&1 &
     sleep 0.1
-    # Set high priority for better audio performance
-    
-    # Unmute audio output
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" unmute 2>/dev/null || echo "No mixer controls available"
     }
 
 stop() {
-    # Mute audio output
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null || echo "No mixer controls available"
     pid=$(pidof qobuz-connect)
     if [ -n "$pid" ]; then
         kill -9 $pid

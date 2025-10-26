@@ -1,7 +1,5 @@
 #!/bin/sh
 
-MIXER=`sed 's/,.*//' /tmp/mixer_control_cache`
-
 start() {
     printf "Starting Tidalconnect: "
     
@@ -28,7 +26,6 @@ start() {
 }
 
 stop() {
-    [ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
     killall -9 tidalconnect
     export LD_LIBRARY_PATH=""
     

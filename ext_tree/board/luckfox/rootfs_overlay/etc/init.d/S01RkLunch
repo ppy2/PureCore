@@ -1,8 +1,6 @@
 #!/bin/sh
 
 echo 1 > /sys/devices/platform/ffae0000.i2s/mute
-MIXER=`amixer 2>/dev/null| awk -F "'" 'NR==1 {print $2; exit}'`
-/usr/bin/amixer set "$MIXER" mute
 
 	if [ -f /data/ethaddr.txt ]; then
 	    MAC=`cat /data/ethaddr.txt`
@@ -23,7 +21,6 @@ MIXER=`amixer 2>/dev/null| awk -F "'" 'NR==1 {print $2; exit}'`
 /sbin/ifconfig eth0 up && /sbin/udhcpc -i eth0
 
 grep MCLK=1024 /etc/i2s.conf && echo 1024 > /sys/devices/platform/ffae0000.i2s/mclk_multiplier
-echo 100 >  /sys/devices/platform/ffae0000.i2s/premute_delay_ms 
 echo 300 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 
 echo 1 > /sys/devices/platform/ffae0000.i2s/dsd_physical_swap
 echo 0 > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap

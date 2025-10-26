@@ -1,0 +1,11 @@
+#!/bin/sh
+
+case "$1" in
+    start)
+    echo 0 > /sys/devices/platform/ffae0000.i2s/mute
+	;;
+    stop) ;;
+    *)
+	exit 1
+	;;
+esac

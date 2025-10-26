@@ -52,7 +52,7 @@ diff -Naur original_dir/sound/soc/codecs/dummy-codec.c modified_dir/sound/soc/co
  };
 diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-08 22:46:48.056357108 +0300
++++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-25 12:22:13.206835894 +0300
 @@ -4,18 +4,14 @@
   *
   * Copyright (c) 2018 Rockchip Electronics Co. Ltd.
@@ -107,7 +107,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  
  #define DRV_NAME "rockchip-i2s-tdm"
  
-@@ -39,328 +48,472 @@
+@@ -39,328 +48,461 @@
  #define HAVE_SYNC_RESET
  #endif
  
@@ -123,9 +123,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +#define MAXBURST_PER_FIFO			64
 +
 +/* Auto-mute timing defaults */
-+#define DEFAULT_PREMUTE_DELAY_MS		50
 +#define DEFAULT_POSTMUTE_DELAY_MS		450
-+#define AUTOMUTE_DEBOUNCE_MS			1000
  
  #define QUIRK_ALWAYS_ON				BIT(0)
  #define QUIRK_HDMI_PATH				BIT(1)
@@ -285,8 +283,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    /* Automatic mute during switching */
 +    bool auto_mute_active;          // Active state of automatic mute
 +    bool user_mute_priority;        // User priority over automation
-+    struct delayed_work mute_pre_work;    // Timer to enable mute 20ms before
-+    struct delayed_work mute_post_work;   // Timer to disable mute after 400ms
++    bool format_change_mute;        // Mute during PCM/DSD format change (higher priority)
++    struct delayed_work mute_post_work;   // Timer to disable mute after delay
 +    struct mutex mute_lock;         // Mutex for protecting mute operations
 +    
 +    
@@ -298,13 +296,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    unsigned long last_auto_mute_time;
 +    
 +    /* Configurable auto-mute times via sysfs */
-+    unsigned int premute_delay_ms;      // Delay between mute and stop/start (default 50ms)
 +    unsigned int postmute_delay_ms;     // Mute hold time after start (default 450ms)
-+    
-+    /* Delayed start for proper premute timing */
-+    struct timer_list delayed_start_timer;
-+    int pending_stream;                 // Stream to start after premute delay
-+    bool delayed_start_pending;         // Delayed start is scheduled
 +    
 +    /* GPIO for DSD-on signal */
 +    struct gpio_desc *dsd_on_gpio;
@@ -406,9 +398,6 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    }
 +}
 +
-+static void rockchip_i2s_tdm_trigger_auto_mute(struct rk_i2s_tdm_dev *i2s_tdm);
-+static void rockchip_i2s_tdm_trigger_stop_mute(struct rk_i2s_tdm_dev *i2s_tdm);
-+static void rockchip_i2s_tdm_mute_pre_work(struct work_struct *work);
 +static void rockchip_i2s_tdm_mute_post_work(struct work_struct *work);
  
  static struct i2s_of_quirks {
@@ -481,12 +470,9 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static int i2s_tdm_runtime_suspend(struct device *dev)
  {
 -	struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
--
--	regcache_cache_only(i2s_tdm->regmap, true);
 +    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
  
--	clk_disable_unprepare(i2s_tdm->mclk_tx);
--	clk_disable_unprepare(i2s_tdm->mclk_rx);
+-	regcache_cache_only(i2s_tdm->regmap, true);
 +    regcache_cache_only(i2s_tdm->regmap, true);
 +    
 +    /* Do not turn off MCLK if continuous MCLK quirk is enabled */
@@ -497,6 +483,9 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        dev_dbg(i2s_tdm->dev, "MCLK kept running during suspend (quirk enabled)\n");
 +    }
  
+-	clk_disable_unprepare(i2s_tdm->mclk_tx);
+-	clk_disable_unprepare(i2s_tdm->mclk_rx);
+-
 -	return 0;
 +    return 0;
  }
@@ -832,7 +821,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -369,16 +522,18 @@
+@@ -369,16 +511,18 @@
   */
  static void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
@@ -853,7 +842,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static inline void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
  }
-@@ -386,57 +541,59 @@
+@@ -386,57 +530,59 @@
  
  static void rockchip_i2s_tdm_reset(struct reset_control *rc)
  {
@@ -955,7 +944,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -446,2088 +603,3260 @@
+@@ -446,2088 +592,3273 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -1294,11 +1283,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static void rockchip_i2s_tdm_stop(struct rk_i2s_tdm_dev *i2s_tdm, int stream)
  {
 -	rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 0);
-+    /* FIX: Enable mute BEFORE stop to prevent clicks */
-+    if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
-+        rockchip_i2s_tdm_trigger_stop_mute(i2s_tdm);
-+        /* Delay already performed inside trigger_stop_mute */
-+    }
++    /* Mute is handled in trigger callback */
 +    
 +    /* First stop transmission (BCLK/DATA), then DMA */
 +    if (i2s_tdm->clk_trcm)
@@ -1383,14 +1368,14 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +           I2S_XFER_RXS_START);
 +    }
 +    }
++
++    /* Enable DMA */
++    rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 1);
  
 -	if (i2s_tdm->clk_trcm)
 -		rockchip_i2s_tdm_xfer_trcm_stop(i2s_tdm);
 -	else
 -		rockchip_i2s_tdm_xfer_stop(i2s_tdm, stream, false);
-+    /* Enable DMA */
-+    rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 1);
-+
 +    dev_dbg(i2s_tdm->dev, "I2S/TDM %s stream resumed\n",
 +    stream == SNDRV_PCM_STREAM_PLAYBACK ? "playback" : "capture");
  }
@@ -2246,11 +2231,11 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    regmap_read(i2s_tdm->regmap, I2S_RXCR, &val);
 +    last_fmt = val & (I2S_RXCR_VDW_MASK | I2S_RXCR_CSR_MASK);
 +    }
-+
-+    if (last_fmt != fmt)
-+    return true;
  
 -	return false;
++    if (last_fmt != fmt)
++    return true;
++
 +    return false;
  }
  
@@ -2558,7 +2543,25 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -				goto err;
 -		}
 -			//  
--//+++
++    struct rk_i2s_tdm_dev *i2s_tdm = to_info(dai);
++    struct snd_dmaengine_dai_dma_data *dma_data;
++    struct clk *mclk;
++    int ret = 0;
++    unsigned int val = 0;
++    unsigned int mclk_rate, bclk_rate, div_bclk = 4, div_lrck = 64;
++
++    dma_data = snd_soc_dai_get_dma_data(dai, substream);
++    dma_data->maxburst = MAXBURST_PER_FIFO * params_channels(params) / 2;
++
++
++    /* Note: Mute is now handled in trigger for proper timing */
++    
++
++    if (i2s_tdm->is_master_mode) {
++        if (i2s_tdm->mclk_calibrate)
++            rockchip_i2s_tdm_calibrate_mclk(i2s_tdm, substream,
++                            params_rate(params));
+ //+++
 -	if (i2s_tdm->is_master_mode) {
 -		mclk = i2s_tdm->mclk_tx;		// !must check if RX
 -
@@ -2595,8 +2598,39 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -				}
 -			}
 -		}
--//+++
--
++        if( i2s_tdm->mclk_external ){
++            mclk = i2s_tdm->mclk_tx;
++            if( i2s_tdm->mclk_ext_mux ) {
++                /* Consider MCLK multiplier for external PLL */
++                if( params_rate(params) % 44100 ) {
++                    clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_48);
++                    /* 48kHz family: 24.576MHz (512x) or 49.152MHz (1024x) */
++                    if (i2s_tdm->mclk_multiplier == 1024) {
++                        clk_set_rate(i2s_tdm->mclk_tx, 49152000);
++                    } else {
++                        clk_set_rate(i2s_tdm->mclk_tx, 24576000);
++                    }
++                }
++                else {
++                    clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_44);
++                    /* 44.1kHz family: 22.579MHz (512x) or 45.158MHz (1024x) */
++                    if (i2s_tdm->mclk_multiplier == 1024) {
++                        clk_set_rate(i2s_tdm->mclk_tx, 45158400);
++                    } else {
++                        clk_set_rate(i2s_tdm->mclk_tx, 22579200);
++                    }
++                }
++                dev_info(i2s_tdm->dev, "External PLL: MCLK set to %lu Hz (multiplier %dx)\n", 
++                         clk_get_rate(i2s_tdm->mclk_tx), i2s_tdm->mclk_multiplier);
++            }
++        }
++        else {
++            ret = rockchip_i2s_tdm_set_mclk(i2s_tdm, substream, &mclk);
++            if (ret)
++                goto err;
++        }
+ //+++
+ 
 -		mclk_rate = clk_get_rate(mclk);
 -		//--bclk_rate = i2s_tdm->bclk_fs * params_rate(params);
 -		bclk_rate = i2s_tdm->frame_width * params_rate(params);
@@ -2607,26 +2641,312 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -		div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
 -		div_lrck = bclk_rate / params_rate(params);
 -	}
--
-+    struct rk_i2s_tdm_dev *i2s_tdm = to_info(dai);
-+    struct snd_dmaengine_dai_dma_data *dma_data;
-+    struct clk *mclk;
-+    int ret = 0;
-+    unsigned int val = 0;
-+    unsigned int mclk_rate, bclk_rate, div_bclk = 4, div_lrck = 64;
++        mclk_rate = clk_get_rate(mclk);
++        
++        /* Special handling for DSD formats */
++        if (is_dsd(params_format(params))) {
++            bclk_rate = calculate_dsd_bclk(params_format(params), params_rate(params));
++            /* DSD always uses 22.579 MHz MCLK - force it if different */
++            if (mclk_rate != 22579200) {
++                dev_info(i2s_tdm->dev, "DSD: MCLK rate %u Hz, expected 22579200 Hz\n", mclk_rate);
++            }
++            dev_info(i2s_tdm->dev, "DSD mode: BCLK=%u Hz, MCLK=%u Hz\n", bclk_rate, mclk_rate);
++        } else {
++            bclk_rate = i2s_tdm->bclk_fs * params_rate(params);
++        }
++        
++        if (!bclk_rate) {
++            ret = -EINVAL;
++            goto err;
++        }
 +
-+    dma_data = snd_soc_dai_get_dma_data(dai, substream);
-+    dma_data->maxburst = MAXBURST_PER_FIFO * params_channels(params) / 2;
++        div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
++        div_lrck = bclk_rate / params_rate(params);
++    }
 +
++    /* Static 1MB buffers are set in rockchip_i2s_tdm_pcm_hardware structure */
 +
-+    /* Note: Mute is now handled in trigger for proper timing */
-+    
++    switch (params_format(params)) {
++    case SNDRV_PCM_FORMAT_S8:
++        val |= I2S_TXCR_VDW(8);
++        /* Disable DSD-on signal for PCM formats */
++        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
++            /* Enable mute before DSD->PCM switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending unmute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = false;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
++            /* Apply routing for PCM mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_S16_LE:
++        val |= I2S_TXCR_VDW(16);
++        /* Disable DSD-on signal for PCM formats */
++        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
++            /* Enable mute before DSD->PCM switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending unmute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = false;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
++            /* Apply routing for PCM mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_S20_3LE:
++        val |= I2S_TXCR_VDW(20);
++        /* Disable DSD-on signal for PCM formats */
++        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
++            /* Enable mute before DSD->PCM switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending unmute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = false;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
++            /* Apply routing for PCM mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_S24_LE:
++        val |= I2S_TXCR_VDW(24);
++        /* Disable DSD-on signal for PCM formats */
++        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
++            /* Enable mute before DSD->PCM switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending unmute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = false;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
++            /* Apply routing for PCM mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_S32_LE:
++    case SNDRV_PCM_FORMAT_IEC958_SUBFRAME_LE:
++        val |= I2S_TXCR_VDW(32);
++        /* Disable DSD-on signal for PCM formats */
++        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
++            /* Enable mute before DSD->PCM switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending unmute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = false;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
++            /* Apply routing for PCM mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_DSD_U8:
++        val |= I2S_TXCR_VDW(8); /* DSD_U8: return standard 8-bit container */
++        
++        /* FORCE disable mmap for DSD_U8 - force use of copy_user */
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
++        dev_info(i2s_tdm->dev, "DSD U8: mmap DISABLED, copy_user FORCED\n");
++        
++        /* Activate DSD-on signal */
++        if (i2s_tdm->dsd_on_gpio) {
++            /* Enable mute before PCM->DSD switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending post-mute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = true;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
++            /* Apply routing for DSD mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_DSD_U16_LE:
++        val |= I2S_TXCR_VDW(16);
++        
++        /* FORCE disable mmap for DSD - force use of copy_user */
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
++        dev_info(i2s_tdm->dev, "DSD U16: mmap DISABLED, copy_user FORCED\n");
++        
++        /* Activate DSD-on signal */
++        if (i2s_tdm->dsd_on_gpio) {
++            /* Enable mute before PCM->DSD switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending post-mute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = true;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
++            /* Apply routing for DSD mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    case SNDRV_PCM_FORMAT_DSD_U32_LE:
++    case SNDRV_PCM_FORMAT_DSD_U32_BE:
++        val |= I2S_TXCR_VDW(16); /* DSD: only 16 bits of data in 32-bit container */
++        
++        /* FORCE disable mmap for DSD - force use of copy_user */
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
++        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
++        dev_info(i2s_tdm->dev, "DSD: mmap DISABLED, copy_user FORCED\n");
++        
++        /* Activate DSD-on signal */
++        if (i2s_tdm->dsd_on_gpio) {
++            /* Enable mute before PCM->DSD switch to eliminate clicks */
++            if (i2s_tdm->mute_gpio) {
++                /* Cancel any pending post-mute work from trigger */
++                cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++                
++                i2s_tdm->format_change_mute = true;
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                msleep(50);
++            }
++            i2s_tdm->dsd_mode_active = true;
++            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
++            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
++            /* Apply routing for DSD mode */
++            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++            /* Wait for DAC to settle, then let normal trigger unmute handle it */
++            if (i2s_tdm->mute_gpio) {
++                msleep(500);
++                /* Clear flag and restore auto_mute for next trigger */
++                i2s_tdm->format_change_mute = false;
++                i2s_tdm->auto_mute_active = true;
++                /* DO NOT unmute here - let trigger's mute_post_work handle it */
++            }
++        }
++        break;
++    default:
++        ret = -EINVAL;
++        goto err;
++    }
 +
-+    if (i2s_tdm->is_master_mode) {
-+        if (i2s_tdm->mclk_calibrate)
-+            rockchip_i2s_tdm_calibrate_mclk(i2s_tdm, substream,
-+                            params_rate(params));
- //+++
++    ret = rockchip_i2s_tdm_params_channels(substream, params, dai);
++    if (ret < 0)
++        goto err;
++
++    val |= ret;
++
++    /* Apply PCM channel swap if enabled and not in DSD mode */
++    if (!i2s_tdm->dsd_mode_active) {
++        unsigned int mask, ckr_val;
++        
++        mask = I2S_CKR_TLP_MASK | I2S_CKR_RLP_MASK;
++        regmap_read(i2s_tdm->regmap, I2S_CKR, &ckr_val);
++        
++        ckr_val &= ~mask;
++        if (i2s_tdm->pcm_channel_swap) {
++            ckr_val |= I2S_CKR_TLP_INVERTED | I2S_CKR_RLP_INVERTED;
++        } else {
++            ckr_val |= I2S_CKR_TLP_NORMAL | I2S_CKR_RLP_NORMAL;
++        }
++        regmap_update_bits(i2s_tdm->regmap, I2S_CKR, mask, ckr_val);
++    }
++
++    if (!is_params_dirty(substream, dai, div_bclk, div_lrck, val))
++        return 0;
++
++    if (i2s_tdm->clk_trcm)
++        rockchip_i2s_tdm_params_trcm(substream, dai, div_bclk, div_lrck, val);
++    else
++        rockchip_i2s_tdm_params(substream, dai, div_bclk, div_lrck, val);
+ 
+-//+++
 -	if( s2mono && (params_format(params) != SNDRV_PCM_FORMAT_S16_LE) ) {
 -		val |= I2S_TXCR_VDW(16);
 -		val |= I2S_CHN_4;
@@ -2693,39 +3013,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -				   I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
 -				   val);
 -
-+        if( i2s_tdm->mclk_external ){
-+            mclk = i2s_tdm->mclk_tx;
-+            if( i2s_tdm->mclk_ext_mux ) {
-+                /* Consider MCLK multiplier for external PLL */
-+                if( params_rate(params) % 44100 ) {
-+                    clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_48);
-+                    /* 48kHz family: 24.576MHz (512x) or 49.152MHz (1024x) */
-+                    if (i2s_tdm->mclk_multiplier == 1024) {
-+                        clk_set_rate(i2s_tdm->mclk_tx, 49152000);
-+                    } else {
-+                        clk_set_rate(i2s_tdm->mclk_tx, 24576000);
-+                    }
-+                }
-+                else {
-+                    clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_44);
-+                    /* 44.1kHz family: 22.579MHz (512x) or 45.158MHz (1024x) */
-+                    if (i2s_tdm->mclk_multiplier == 1024) {
-+                        clk_set_rate(i2s_tdm->mclk_tx, 45158400);
-+                    } else {
-+                        clk_set_rate(i2s_tdm->mclk_tx, 22579200);
-+                    }
-+                }
-+                dev_info(i2s_tdm->dev, "External PLL: MCLK set to %lu Hz (multiplier %dx)\n", 
-+                         clk_get_rate(i2s_tdm->mclk_tx), i2s_tdm->mclk_multiplier);
-+            }
-+        }
-+        else {
-+            ret = rockchip_i2s_tdm_set_mclk(i2s_tdm, substream, &mclk);
-+            if (ret)
-+                goto err;
-+        }
- //+++
- 
+-//+++
+-
 -	// orig
 -	if(0) {
 -		ret = rockchip_i2s_tdm_params_channels(substream, params, dai);
@@ -2742,175 +3031,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -			rockchip_i2s_tdm_params(substream, dai, div_bclk, div_lrck, val);
 -	}
 -	// orig
-+        mclk_rate = clk_get_rate(mclk);
-+        
-+        /* Special handling for DSD formats */
-+        if (is_dsd(params_format(params))) {
-+            bclk_rate = calculate_dsd_bclk(params_format(params), params_rate(params));
-+            /* DSD always uses 22.579 MHz MCLK - force it if different */
-+            if (mclk_rate != 22579200) {
-+                dev_info(i2s_tdm->dev, "DSD: MCLK rate %u Hz, expected 22579200 Hz\n", mclk_rate);
-+            }
-+            dev_info(i2s_tdm->dev, "DSD mode: BCLK=%u Hz, MCLK=%u Hz\n", bclk_rate, mclk_rate);
-+        } else {
-+            bclk_rate = i2s_tdm->bclk_fs * params_rate(params);
-+        }
-+        
-+        if (!bclk_rate) {
-+            ret = -EINVAL;
-+            goto err;
-+        }
-+
-+        div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
-+        div_lrck = bclk_rate / params_rate(params);
-+    }
-+
-+    /* Static 1MB buffers are set in rockchip_i2s_tdm_pcm_hardware structure */
-+
-+    switch (params_format(params)) {
-+    case SNDRV_PCM_FORMAT_S8:
-+        val |= I2S_TXCR_VDW(8);
-+        /* Disable DSD-on signal for PCM formats */
-+        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
-+            i2s_tdm->dsd_mode_active = false;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
-+            /* Apply routing for PCM mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_S16_LE:
-+        val |= I2S_TXCR_VDW(16);
-+        /* Disable DSD-on signal for PCM formats */
-+        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
-+            i2s_tdm->dsd_mode_active = false;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
-+            /* Apply routing for PCM mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_S20_3LE:
-+        val |= I2S_TXCR_VDW(20);
-+        /* Disable DSD-on signal for PCM formats */
-+        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
-+            i2s_tdm->dsd_mode_active = false;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
-+            /* Apply routing for PCM mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_S24_LE:
-+        val |= I2S_TXCR_VDW(24);
-+        /* Disable DSD-on signal for PCM formats */
-+        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
-+            i2s_tdm->dsd_mode_active = false;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
-+            /* Apply routing for PCM mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_S32_LE:
-+    case SNDRV_PCM_FORMAT_IEC958_SUBFRAME_LE:
-+        val |= I2S_TXCR_VDW(32);
-+        /* Disable DSD-on signal for PCM formats */
-+        if (i2s_tdm->dsd_on_gpio && i2s_tdm->dsd_mode_active) {
-+            i2s_tdm->dsd_mode_active = false;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
-+            /* Apply routing for PCM mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_DSD_U8:
-+        val |= I2S_TXCR_VDW(8); /* DSD_U8: return standard 8-bit container */
-+        
-+        /* FORCE disable mmap for DSD_U8 - force use of copy_user */
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
-+        dev_info(i2s_tdm->dev, "DSD U8: mmap DISABLED, copy_user FORCED\n");
-+        
-+        /* Activate DSD-on signal */
-+        if (i2s_tdm->dsd_on_gpio) {
-+            i2s_tdm->dsd_mode_active = true;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
-+            /* Apply routing for DSD mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_DSD_U16_LE:
-+        val |= I2S_TXCR_VDW(16);
-+        
-+        /* FORCE disable mmap for DSD - force use of copy_user */
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
-+        dev_info(i2s_tdm->dev, "DSD U16: mmap DISABLED, copy_user FORCED\n");
-+        
-+        /* Activate DSD-on signal */
-+        if (i2s_tdm->dsd_on_gpio) {
-+            i2s_tdm->dsd_mode_active = true;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
-+            /* Apply routing for DSD mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    case SNDRV_PCM_FORMAT_DSD_U32_LE:
-+    case SNDRV_PCM_FORMAT_DSD_U32_BE:
-+        val |= I2S_TXCR_VDW(16); /* DSD: only 16 bits of data in 32-bit container */
-+        
-+        /* FORCE disable mmap for DSD - force use of copy_user */
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP;
-+        substream->runtime->hw.info &= ~SNDRV_PCM_INFO_MMAP_VALID;
-+        dev_info(i2s_tdm->dev, "DSD: mmap DISABLED, copy_user FORCED\n");
-+        
-+        /* Activate DSD-on signal */
-+        if (i2s_tdm->dsd_on_gpio) {
-+            i2s_tdm->dsd_mode_active = true;
-+            gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
-+            dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO activated (DSD mode ON)\n");
-+            /* Apply routing for DSD mode */
-+            rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
-+        }
-+        break;
-+    default:
-+        ret = -EINVAL;
-+        goto err;
-+    }
-+
-+    ret = rockchip_i2s_tdm_params_channels(substream, params, dai);
-+    if (ret < 0)
-+        goto err;
-+
-+    val |= ret;
-+
-+    /* Apply PCM channel swap if enabled and not in DSD mode */
-+    if (!i2s_tdm->dsd_mode_active) {
-+        unsigned int mask, ckr_val;
-+        
-+        mask = I2S_CKR_TLP_MASK | I2S_CKR_RLP_MASK;
-+        regmap_read(i2s_tdm->regmap, I2S_CKR, &ckr_val);
-+        
-+        ckr_val &= ~mask;
-+        if (i2s_tdm->pcm_channel_swap) {
-+            ckr_val |= I2S_CKR_TLP_INVERTED | I2S_CKR_RLP_INVERTED;
-+        } else {
-+            ckr_val |= I2S_CKR_TLP_NORMAL | I2S_CKR_RLP_NORMAL;
-+        }
-+        regmap_update_bits(i2s_tdm->regmap, I2S_CKR, mask, ckr_val);
-+    }
-+
-+    if (!is_params_dirty(substream, dai, div_bclk, div_lrck, val))
-+        return 0;
-+
-+    if (i2s_tdm->clk_trcm)
-+        rockchip_i2s_tdm_params_trcm(substream, dai, div_bclk, div_lrck, val);
-+    else
-+        rockchip_i2s_tdm_params(substream, dai, div_bclk, div_lrck, val);
- 
+-
 -	ret = rockchip_i2s_io_multiplex(substream, dai);
 +    ret = rockchip_i2s_io_multiplex(substream, dai);
  
@@ -2950,32 +3071,21 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 +        i2s_tdm->playback_paused = false;
 +        
-+        /* For playback: Enable mute NOW and schedule delayed start */
-+        mutex_lock(&i2s_tdm->mute_lock);
-+        
-+        /* Cancel any pending delayed start */
-+        del_timer(&i2s_tdm->delayed_start_timer);
-+        i2s_tdm->delayed_start_pending = false;
-+        
-+        /* Enable mute immediately for mechanical relay protection */
++        /* Ensure auto_mute is active for this playback session */
 +        if (!i2s_tdm->user_mute_priority) {
-+            if (i2s_tdm->mute_gpio) {
-+                gpiod_set_value(i2s_tdm->mute_gpio, 1);
-+            }
 +            i2s_tdm->auto_mute_active = true;
-+            rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
 +        }
 +        
-+        /* Schedule delayed start after premute delay */
-+        i2s_tdm->pending_stream = substream->stream;
-+        i2s_tdm->delayed_start_pending = true;
-+        mod_timer(&i2s_tdm->delayed_start_timer, 
-+                  jiffies + msecs_to_jiffies(i2s_tdm->premute_delay_ms));
++        /* Start stream immediately - mute is already ON by default */
++        rockchip_i2s_tdm_start(i2s_tdm, substream->stream);
 +        
-+        dev_info(i2s_tdm->dev, "TRIGGER START: Mute enabled, delaying start by %dms\n", 
-+                 i2s_tdm->premute_delay_ms);
-+        
-+        mutex_unlock(&i2s_tdm->mute_lock);
++        /* Schedule unmute after postmute delay */
++        if (!i2s_tdm->user_mute_priority && i2s_tdm->postmute_delay_ms > 0) {
++            schedule_delayed_work(&i2s_tdm->mute_post_work, 
++                                msecs_to_jiffies(i2s_tdm->postmute_delay_ms));
++            dev_info(i2s_tdm->dev, "TRIGGER START: Stream started, unmute in %dms\n", 
++                     i2s_tdm->postmute_delay_ms);
++        }
 +    } else {
 +        i2s_tdm->capture_paused = false;
 +        rockchip_i2s_tdm_start(i2s_tdm, substream->stream);
@@ -2999,13 +3109,20 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 +        i2s_tdm->playback_paused = false;
 +        
-+        /* Cancel any pending delayed start */
-+        mutex_lock(&i2s_tdm->mute_lock);
-+        del_timer(&i2s_tdm->delayed_start_timer);
-+        i2s_tdm->delayed_start_pending = false;
-+        mutex_unlock(&i2s_tdm->mute_lock);
++        /* Cancel any pending unmute work */
++        cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
 +        
-+        dev_info(i2s_tdm->dev, "TRIGGER STOP: Cancelled any pending delayed start\n");
++        /* Enable mute when playback stops (no useful signal) */
++        mutex_lock(&i2s_tdm->mute_lock);
++        if (!i2s_tdm->user_mute_priority && !i2s_tdm->format_change_mute) {
++            if (i2s_tdm->mute_gpio) {
++                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            }
++            i2s_tdm->auto_mute_active = true;
++            rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
++            dev_info(i2s_tdm->dev, "TRIGGER STOP: Mute enabled (no signal)\n");
++        }
++        mutex_unlock(&i2s_tdm->mute_lock);
 +    } else {
 +        i2s_tdm->capture_paused = false;
 +    }
@@ -3340,24 +3457,35 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        i2s_tdm->user_mute_priority = true;
 +        
 +        /* Cancel any automatic timers */
-+        cancel_delayed_work(&i2s_tdm->mute_pre_work);
 +        cancel_delayed_work(&i2s_tdm->mute_post_work);
 +        
 +        /* Enable mute instantly */
 +        rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
 +        
 +    } else {
-+        /* User disabled mute - reset priority */
++        /* User disabled mute - reset priority but keep auto_mute if no signal */
 +        i2s_tdm->user_mute_priority = false;
-+        i2s_tdm->auto_mute_active = false;
 +        
-+        /* Cancel any automatic timers */
-+        cancel_delayed_work(&i2s_tdm->mute_pre_work);
-+        cancel_delayed_work(&i2s_tdm->mute_post_work);
++        /* Check if stream is running */
++        bool stream_running = false;
++        if (i2s_tdm->substreams[SNDRV_PCM_STREAM_PLAYBACK]) {
++            struct snd_pcm_substream *substream = i2s_tdm->substreams[SNDRV_PCM_STREAM_PLAYBACK];
++            struct snd_pcm_runtime *runtime = substream->runtime;
++            if (runtime && runtime->status->state == SNDRV_PCM_STATE_RUNNING) {
++                stream_running = true;
++            }
++        }
 +        
-+        /* Disable mute */
-+        rockchip_i2s_tdm_apply_mute(i2s_tdm, false);
-+        dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Mute disabled by user control (priority cleared)\n");
++        /* Only unmute if stream is running */
++        if (stream_running) {
++            i2s_tdm->auto_mute_active = false;
++            cancel_delayed_work(&i2s_tdm->mute_post_work);
++            rockchip_i2s_tdm_apply_mute(i2s_tdm, false);
++            dev_info(i2s_tdm->dev, "User unmute: stream running, mute OFF\n");
++        } else {
++            /* Keep auto mute active - no signal yet */
++            dev_info(i2s_tdm->dev, "User unmute: no stream, keeping mute ON\n");
++        }
 +    }
 +
 +    mutex_unlock(&i2s_tdm->mute_lock);
@@ -3373,10 +3501,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +/* Automatic mute during switching */
 +static void rockchip_i2s_tdm_apply_mute(struct rk_i2s_tdm_dev *i2s_tdm, bool enable)
 +{
-+    unsigned long flags;
-+    
 +    if (enable) {
-+        /* Enable mute INSTANTLY - premute_delay_ms already processed before call */
++        /* Enable mute INSTANTLY */
 +        if (i2s_tdm->mute_gpio)
 +            gpiod_set_value(i2s_tdm->mute_gpio, 1);
 +        
@@ -3398,196 +3524,47 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* DMA continues to work, but sound is muted through GPIO + software */
 +        
 +    } else {
-+        /* Disable mute instantly - delay was already in delayed_work */
++        /* Disable mute - called only from scheduled work after trigger start */
 +        if (i2s_tdm->mute_gpio) {
 +            gpiod_set_value(i2s_tdm->mute_gpio, 0);
 +        }
-+        
-+        
-+        /* DMA is already working, mute lifted through GPIO + software */
 +    }
 +}
 +
-+/* Function for pre-mute work thread (enable 20ms before) */
-+static void rockchip_i2s_tdm_mute_pre_work(struct work_struct *work)
-+{
-+    struct rk_i2s_tdm_dev *i2s_tdm = container_of(work, struct rk_i2s_tdm_dev, mute_pre_work.work);
-+    
-+    /* Check that device is still active */
-+    if (!i2s_tdm->dev || !device_is_registered(i2s_tdm->dev)) {
-+        dev_warn(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Device unregistered during pre-mute work\n");
-+        return;
-+    }
-+    
-+    mutex_lock(&i2s_tdm->mute_lock);
-+    
-+    /* Enable automatic mute only if no user priority */
-+    if (!i2s_tdm->user_mute_priority) {
-+        i2s_tdm->auto_mute_active = true;
-+        rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
-+    }
-+    
-+    mutex_unlock(&i2s_tdm->mute_lock);
-+}
-+
-+/* Function for post-mute work thread (disable after 400ms) */
++/* Function for post-mute work thread (disable mute after delay) */
 +static void rockchip_i2s_tdm_mute_post_work(struct work_struct *work)
 +{
 +    struct rk_i2s_tdm_dev *i2s_tdm = container_of(work, struct rk_i2s_tdm_dev, mute_post_work.work);
 +    
 +    /* Check that device is still active */
 +    if (!i2s_tdm->dev || !device_is_registered(i2s_tdm->dev)) {
-+        dev_warn(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Device unregistered during post-mute work\n");
++        dev_warn(i2s_tdm->dev, "Device unregistered during post-mute work\n");
 +        return;
 +    }
 +    
 +    mutex_lock(&i2s_tdm->mute_lock);
 +    
-+    /* Disable automatic mute only if it was active and no user priority */
++    /* Do NOT unmute if format change mute is active */
++    if (i2s_tdm->format_change_mute) {
++        dev_info(i2s_tdm->dev, "POST-MUTE: Skipping unmute - format change in progress\n");
++        mutex_unlock(&i2s_tdm->mute_lock);
++        return;
++    }
++    
++    /* Unmute if auto_mute is active and no user mute priority */
++    /* This work is only scheduled from TRIGGER_START, so stream is running */
++    dev_info(i2s_tdm->dev, "POST-MUTE: auto_mute=%d user_priority=%d\n", 
++             i2s_tdm->auto_mute_active, i2s_tdm->user_mute_priority);
++    
 +    if (i2s_tdm->auto_mute_active && !i2s_tdm->user_mute_priority) {
 +        i2s_tdm->auto_mute_active = false;
-+        rockchip_i2s_tdm_apply_mute(i2s_tdm, false);
-+    }
-+    
-+    mutex_unlock(&i2s_tdm->mute_lock);
-+}
-+
-+/* Function to start automatic mute during switching */
-+static void rockchip_i2s_tdm_trigger_auto_mute(struct rk_i2s_tdm_dev *i2s_tdm)
-+{
-+    unsigned long current_time = jiffies;
-+    unsigned long min_interval = msecs_to_jiffies(AUTOMUTE_DEBOUNCE_MS); // minimum interval
-+    bool is_atomic_ctx = in_atomic() || in_interrupt() || irqs_disabled();
-+    
-+    mutex_lock(&i2s_tdm->mute_lock);
-+    
-+    /* Check if auto-mute is called too frequently */
-+    if (i2s_tdm->last_auto_mute_time != 0 && 
-+        time_before(current_time, i2s_tdm->last_auto_mute_time + min_interval)) {
-+        /* Too frequent calls - ignore completely */
-+        dev_dbg(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Auto-mute debounce - ignoring frequent call\n");
-+        mutex_unlock(&i2s_tdm->mute_lock);
-+        return;
-+    }
-+    
-+    /* Update last trigger time */
-+    i2s_tdm->last_auto_mute_time = current_time;
-+    
-+    /* Cancel any previous post-mute timers */
-+    cancel_delayed_work(&i2s_tdm->mute_post_work);
-+    
-+    /* CRITICAL: Enable GPIO mute INSTANTLY first */
-+    if (!i2s_tdm->user_mute_priority) {
 +        if (i2s_tdm->mute_gpio) {
-+            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            gpiod_set_value(i2s_tdm->mute_gpio, 0);
 +        }
-+        
-+        /* Enable software mute instantly */
-+        i2s_tdm->auto_mute_active = true;
-+        rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
-+        
-+        /* Premute delay depends on context */
-+        if (i2s_tdm->premute_delay_ms > 0) {
-+            if (is_atomic_ctx) {
-+                /* In atomic context - only short delays via udelay */
-+                if (i2s_tdm->premute_delay_ms <= 10) {
-+                    udelay(i2s_tdm->premute_delay_ms * 1000);
-+                }
-+                /* Skip long delays - mute already enabled */
-+                dev_dbg(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Atomic context - skipping long premute delay\n");
-+            } else {
-+                /* In normal context - can use mdelay */
-+                if (i2s_tdm->premute_delay_ms >= 10) {
-+                    mdelay(i2s_tdm->premute_delay_ms);
-+                } else {
-+                    udelay(i2s_tdm->premute_delay_ms * 1000);
-+                }
-+            }
-+        }
-+    }
-+    
-+    /* Start post-mute after configurable time */
-+    if (i2s_tdm->postmute_delay_ms > 0)
-+        schedule_delayed_work(&i2s_tdm->mute_post_work, msecs_to_jiffies(i2s_tdm->postmute_delay_ms));
-+    
-+    mutex_unlock(&i2s_tdm->mute_lock);
-+}
-+
-+/* Function to enable mute when stopping playback WITHOUT automatic disable */
-+static void rockchip_i2s_tdm_trigger_stop_mute(struct rk_i2s_tdm_dev *i2s_tdm)
-+{
-+    bool is_atomic_ctx = in_atomic() || in_interrupt() || irqs_disabled();
-+    
-+    /* Attempt non-blocking lock in atomic context */
-+    if (is_atomic_ctx) {
-+        if (!mutex_trylock(&i2s_tdm->mute_lock)) {
-+            /* If failed - do only critical operations without locking */
-+            dev_warn(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: Atomic context - direct GPIO mute without lock\n");
-+            if (i2s_tdm->mute_gpio && !i2s_tdm->user_mute_priority) {
-+                gpiod_set_value(i2s_tdm->mute_gpio, 1);
-+            }
-+            return;
-+        }
++        dev_info(i2s_tdm->dev, "POST-MUTE: Unmuted after %dms\n", i2s_tdm->postmute_delay_ms);
 +    } else {
-+        mutex_lock(&i2s_tdm->mute_lock);
++        dev_info(i2s_tdm->dev, "POST-MUTE: Unmute BLOCKED\n");
 +    }
-+    
-+    /* Cancel any previous post-mute timers */
-+    cancel_delayed_work(&i2s_tdm->mute_post_work);
-+    
-+    /* CRITICAL: Enable GPIO mute PHYSICALLY before stopping data */
-+    if (!i2s_tdm->user_mute_priority) {
-+        /* Enable GPIO mute INSTANTLY - this is fastest */
-+        if (i2s_tdm->mute_gpio) {
-+            gpiod_set_value(i2s_tdm->mute_gpio, 1);
-+        }
-+        
-+        /* Premute delay only for very short intervals when stopping */
-+        if (i2s_tdm->premute_delay_ms > 0 && i2s_tdm->premute_delay_ms <= 5) {
-+            udelay(i2s_tdm->premute_delay_ms * 1000);
-+        }
-+        /* Skip long delays when stopping - mute already enabled via GPIO */
-+        
-+        i2s_tdm->auto_mute_active = true;
-+        /* Also enable software mute for compatibility */
-+        rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
-+    }
-+    
-+    /* DO NOT start post-mute timer - mute stays enabled until next start */
-+    
-+    mutex_unlock(&i2s_tdm->mute_lock);
-+}
-+
-+/* Timer handler for delayed start after premute */
-+static void rockchip_i2s_tdm_delayed_start_timer(struct timer_list *t)
-+{
-+    struct rk_i2s_tdm_dev *i2s_tdm = from_timer(i2s_tdm, t, delayed_start_timer);
-+    int stream;
-+    
-+    mutex_lock(&i2s_tdm->mute_lock);
-+    
-+    if (!i2s_tdm->delayed_start_pending) {
-+        mutex_unlock(&i2s_tdm->mute_lock);
-+        return; /* Start was cancelled */
-+    }
-+    
-+    stream = i2s_tdm->pending_stream;
-+    i2s_tdm->delayed_start_pending = false;
-+    
-+    dev_info(i2s_tdm->dev, "DELAYED START: Starting stream %d after %dms premute\n", 
-+             stream, i2s_tdm->premute_delay_ms);
-+    
-+    /* Now actually start the hardware - mute was enabled 50ms ago */
-+    rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 1);
-+    
-+    if (i2s_tdm->clk_trcm)
-+        rockchip_i2s_tdm_xfer_trcm_start(i2s_tdm);
-+    else
-+        rockchip_i2s_tdm_xfer_start(i2s_tdm, stream);
-+    
-+    /* Start post-mute timer to unmute after configured delay */
-+    if (i2s_tdm->postmute_delay_ms > 0)
-+        schedule_delayed_work(&i2s_tdm->mute_post_work, msecs_to_jiffies(i2s_tdm->postmute_delay_ms));
 +    
 +    mutex_unlock(&i2s_tdm->mute_lock);
 +}
@@ -3724,32 +3701,71 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +
 +static DEVICE_ATTR(dsd_physical_swap, 0644, dsd_physical_swap_show, dsd_physical_swap_store);
 +
-+/* Premute delay sysfs interface */
-+static ssize_t premute_delay_ms_show(struct device *dev,
++/* Manual DSD mode control sysfs interface */
++static ssize_t dsd_mode_manual_show(struct device *dev,
 +                                    struct device_attribute *attr,
 +                                    char *buf)
 +{
 +    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
-+    return sprintf(buf, "%u\n", i2s_tdm->premute_delay_ms);
++    return sprintf(buf, "%d\n", i2s_tdm->dsd_mode_active ? 1 : 0);
 +}
 +
-+static ssize_t premute_delay_ms_store(struct device *dev,
++static ssize_t dsd_mode_manual_store(struct device *dev,
 +                                     struct device_attribute *attr,
 +                                     const char *buf, size_t count)
 +{
 +    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
-+    unsigned int delay;
-+
-+    if (kstrtouint(buf, 10, &delay) || delay > 1000)
++    int mode;
++    
++    if (sscanf(buf, "%d", &mode) != 1)
 +        return -EINVAL;
-+
-+    i2s_tdm->premute_delay_ms = delay;
-+    dev_info(i2s_tdm->dev, "Premute delay set to %u ms", delay);
-+
++    
++    if (mode != 0 && mode != 1)
++        return -EINVAL;
++    
++    if (!i2s_tdm->dsd_on_gpio)
++        return -ENODEV;
++    
++    if (mode == 0 && i2s_tdm->dsd_mode_active) {
++        dev_info(dev, "Manual switch: DSD -> PCM\n");
++        /* Enable mute before switch */
++        if (i2s_tdm->mute_gpio) {
++            cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++            i2s_tdm->format_change_mute = true;
++            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            msleep(50);
++        }
++        i2s_tdm->dsd_mode_active = false;
++        gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
++        dev_info(dev, "DSD-on GPIO deactivated (PCM mode)\n");
++        rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++        if (i2s_tdm->mute_gpio) {
++            msleep(500);
++            i2s_tdm->format_change_mute = false;
++        }
++    } else if (mode == 1 && !i2s_tdm->dsd_mode_active) {
++        dev_info(dev, "Manual switch: PCM -> DSD\n");
++        /* Enable mute before switch */
++        if (i2s_tdm->mute_gpio) {
++            cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
++            i2s_tdm->format_change_mute = true;
++            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            msleep(50);
++        }
++        i2s_tdm->dsd_mode_active = true;
++        gpiod_set_value(i2s_tdm->dsd_on_gpio, 1);
++        dev_info(dev, "DSD-on GPIO activated (DSD mode)\n");
++        rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++        if (i2s_tdm->mute_gpio) {
++            msleep(500);
++            i2s_tdm->format_change_mute = false;
++        }
++    }
++    
 +    return count;
 +}
 +
-+static DEVICE_ATTR(premute_delay_ms, 0644, premute_delay_ms_show, premute_delay_ms_store);
++static DEVICE_ATTR(dsd_mode_manual, 0644, dsd_mode_manual_show, dsd_mode_manual_store);
 +
 +/* Postmute delay sysfs interface */
 +static ssize_t postmute_delay_ms_show(struct device *dev,
@@ -3809,7 +3825,6 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        i2s_tdm->user_mute_priority = true;
 +        
 +        /* Cancel any automatic timers */
-+        cancel_delayed_work(&i2s_tdm->mute_pre_work);
 +        cancel_delayed_work(&i2s_tdm->mute_post_work);
 +        
 +        /* Enable mute instantly */
@@ -3822,7 +3837,6 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        i2s_tdm->auto_mute_active = false;
 +        
 +        /* Cancel any automatic timers */
-+        cancel_delayed_work(&i2s_tdm->mute_pre_work);
 +        cancel_delayed_work(&i2s_tdm->mute_post_work);
 +        
 +        /* Disable mute */
@@ -3899,7 +3913,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +            return -EFAULT;
 +        
 +        /* DSD MUTE: Replace data with silence signal (50% duty cycle) */
-+        if (i2s_tdm->mute && i2s_tdm->dsd_mode_active &&
++        if ((i2s_tdm->mute || i2s_tdm->auto_mute_active) && i2s_tdm->dsd_mode_active &&
 +            (substream->runtime->format == SNDRV_PCM_FORMAT_DSD_U32_LE || 
 +             substream->runtime->format == SNDRV_PCM_FORMAT_DSD_U32_BE ||
 +             substream->runtime->format == SNDRV_PCM_FORMAT_DSD_U16_LE) && 
@@ -3920,7 +3934,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        }
 +
 +        /* PCM MUTE: Replace data with silence (0 volume) */
-+        if (i2s_tdm->mute && !i2s_tdm->dsd_mode_active) {
++        if ((i2s_tdm->mute || i2s_tdm->auto_mute_active) && !i2s_tdm->dsd_mode_active) {
 +            memset(dma_area, 0, bytes);
 +            dev_dbg(i2s_tdm->dev, "PCM Mute: replaced %lu bytes with silence\n", bytes);
 +            goto skip_volume_processing;
@@ -4108,17 +4122,16 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 -	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
 +    struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
 +    int ret;
- 
--	dai->capture_dma_data = &i2s_tdm->capture_dma_data;
--	dai->playback_dma_data = &i2s_tdm->playback_dma_data;
++
 +    dai->capture_dma_data = &i2s_tdm->capture_dma_data;
 +    dai->playback_dma_data = &i2s_tdm->playback_dma_data;
  
--	if (i2s_tdm->mclk_calibrate)
--		snd_soc_add_dai_controls(dai, &rockchip_i2s_tdm_compensation_control, 1);
+-	dai->capture_dma_data = &i2s_tdm->capture_dma_data;
+-	dai->playback_dma_data = &i2s_tdm->playback_dma_data;
 +    dev_info(i2s_tdm->dev, "Audiophile processing DISABLED - using standard ALSA\n");
  
--	return 0;
+-	if (i2s_tdm->mclk_calibrate)
+-		snd_soc_add_dai_controls(dai, &rockchip_i2s_tdm_compensation_control, 1);
 +    if (i2s_tdm->mclk_calibrate) {
 +        ret = snd_soc_add_dai_controls(dai, &rockchip_i2s_tdm_compensation_control, 1);
 +        if (ret)
@@ -4140,7 +4153,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        i2s_tdm->mute_kcontrol = snd_soc_card_get_kcontrol(dai->component->card, rockchip_i2s_tdm_mute_control.name);
 +        i2s_tdm->dai = dai;
 +    }
-+
+ 
+-	return 0;
 +    return 0;
  }
  
@@ -4189,21 +4203,21 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  {
 -	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
 +    struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
-+
-+    if (i2s_tdm->substreams[substream->stream])
-+    return -EBUSY;
  
 -	if (i2s_tdm->substreams[substream->stream])
 -		return -EBUSY;
-+    i2s_tdm->substreams[substream->stream] = substream;
++    if (i2s_tdm->substreams[substream->stream])
++    return -EBUSY;
  
 -	i2s_tdm->substreams[substream->stream] = substream;
++    i2s_tdm->substreams[substream->stream] = substream;
+ 
+-	return 0;
 +    /* Export DSD rates for userspace applications like RoonReady */
 +    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 +        dev_info(i2s_tdm->dev, "DSD support available: 2.8M, 5.6M, 11.2M, 22.5M Hz\n");
 +    }
- 
--	return 0;
++
 +    return 0;
  }
  
@@ -4800,13 +4814,13 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  {
 -	int idx;
 +    int idx;
++
  
 -	for (idx = 0; idx < num; idx++) {
 -		regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
 -				   I2S_TXCR_PATH_MASK(idx),
 -				   I2S_TXCR_PATH(idx, i2s_tdm->i2s_sdos[idx]));
 -	}
-+
 +    for (idx = 0; idx < num; idx++) {
 +    regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
 +       I2S_TXCR_PATH_MASK(idx),
@@ -5146,33 +5160,23 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    /* Initialize MCLK multiplier - 512 by default */
 +    i2s_tdm->mclk_multiplier = 512;
 +    
-+    /* Initialize automatic mute */
-+    i2s_tdm->auto_mute_active = false;
++    /* Initialize automatic mute - default ON (no signal yet) */
++    i2s_tdm->auto_mute_active = true;
 +    i2s_tdm->user_mute_priority = false;
 +    mutex_init(&i2s_tdm->mute_lock);
-+    INIT_DELAYED_WORK(&i2s_tdm->mute_pre_work, rockchip_i2s_tdm_mute_pre_work);
 +    INIT_DELAYED_WORK(&i2s_tdm->mute_post_work, rockchip_i2s_tdm_mute_post_work);
 +    
 +    /* Initialize pause state */
 +    i2s_tdm->playback_paused = false;
 +    i2s_tdm->capture_paused = false;
 +    
-+    /* Initialize debounce for auto-mute */
-+    i2s_tdm->last_auto_mute_time = 0;
-+    
-+    /* Initialize configurable auto-mute times */
-+    i2s_tdm->premute_delay_ms = DEFAULT_PREMUTE_DELAY_MS;      // default for mute stabilization
++    /* Initialize configurable postmute delay */
 +    i2s_tdm->postmute_delay_ms = DEFAULT_POSTMUTE_DELAY_MS;    // default for mute hold
-+    
-+    /* Initialize delayed start timer for proper premute timing */
-+    timer_setup(&i2s_tdm->delayed_start_timer, rockchip_i2s_tdm_delayed_start_timer, 0);
-+    i2s_tdm->delayed_start_pending = false;
-+    i2s_tdm->pending_stream = -1;
 +    
 +    dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: Initial volume = %d, mute = %d (sound %s)\n", 
 +     i2s_tdm->volume, i2s_tdm->mute, i2s_tdm->mute ? "OFF" : "ON");
 +
-+    i2s_tdm->mute_gpio = devm_gpiod_get_optional(&pdev->dev, "mute", GPIOD_OUT_LOW);
++    i2s_tdm->mute_gpio = devm_gpiod_get_optional(&pdev->dev, "mute", GPIOD_OUT_HIGH);
 +    if (IS_ERR(i2s_tdm->mute_gpio)) {
 +    ret = PTR_ERR(i2s_tdm->mute_gpio);
 +    dev_err(&pdev->dev, "Failed to get mute GPIO: %d\n", ret);
@@ -5750,10 +5754,10 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* Not critical, continue */
 +    }
 +    
-+    /* Create sysfs attribute for premute delay */
-+    ret = device_create_file(&pdev->dev, &dev_attr_premute_delay_ms);
++    /* Create sysfs attribute for manual DSD mode control */
++    ret = device_create_file(&pdev->dev, &dev_attr_dsd_mode_manual);
 +    if (ret) {
-+        dev_err(&pdev->dev, "Failed to create premute_delay_ms sysfs attribute: %d\n", ret);
++        dev_err(&pdev->dev, "Failed to create dsd_mode_manual sysfs attribute: %d\n", ret);
 +        /* Not critical, continue */
 +    }
 +    
@@ -5790,20 +5794,17 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static int rockchip_i2s_tdm_remove(struct platform_device *pdev)
  {
 -	struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(&pdev->dev);
--
++    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(&pdev->dev);
+ 
 -	pm_runtime_disable(&pdev->dev);
 -	if (!pm_runtime_status_suspended(&pdev->dev))
 -		i2s_tdm_runtime_suspend(&pdev->dev);
-+    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(&pdev->dev);
++    /* Cleanup auto-mute timer */
++    cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
  
 -	clk_disable_unprepare(i2s_tdm->mclk_tx);
 -	clk_disable_unprepare(i2s_tdm->mclk_rx);
 -	clk_disable_unprepare(i2s_tdm->hclk);
-+    /* Cleanup auto-mute timers */
-+    cancel_delayed_work_sync(&i2s_tdm->mute_pre_work);
-+    cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
-+    del_timer_sync(&i2s_tdm->delayed_start_timer);
-+
 +    /* Remove sysfs attributes */
 +    device_remove_file(&pdev->dev, &dev_attr_mclk_multiplier);
 +    device_remove_file(&pdev->dev, &dev_attr_dsd_sample_swap);
