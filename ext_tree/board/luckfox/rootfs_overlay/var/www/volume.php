@@ -122,7 +122,7 @@ switch ($action) {
             exec("/usr/bin/amixer -q sset \"$control\" {$volume}% 2>/dev/null", $output, $return_code);
             shell_exec("/opt/dbus_notify VolumeChanged \"set_volume_{$volume}\" 2>/dev/null &");
             
-            // Триггерим немедленное обновление статуса
+            // Trigger immediate status update
             shell_exec('/usr/bin/killall -USR1 dbus_monitor 2>/dev/null &');
             
             if ($return_code === 0) {

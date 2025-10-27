@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- Кнопки управления плеерами -->
+        <!-- Player control buttons -->
         <button class="btn-custom warning" data-service="naa" data-process="naa_process">HQPlayer (NAA)</button>
         <button class="btn-custom warning" data-service="raat" data-process="raat_process">Roon (RAAT)</button>
         <div class="streaming-buttons">
@@ -41,7 +41,7 @@
         <button class="btn-custom success" data-service="qobuz" data-process="qobuz">Qobuz Connect</button>
 	<button class="btn-custom success" data-service="tidalconnect" data-process="tidalconnect">Tidal Connect</button>        
 
-        <!-- Переключатель ALSA и регулятор громкости -->
+        <!-- ALSA switch and volume control -->
         <div class="alsa-toggle">
             <div class="alsa-left">
                 <div class="toggle-switch">
@@ -63,7 +63,7 @@
             </div>
         </div>
 
-        <!-- Кнопки обновления и управления питанием -->
+        <!-- Update and power management buttons -->
         <div class="power-controls">
             <button id="update-firmware" class="btn-custom danger firmware-btn">
                 <div class="firmware-text">
@@ -83,7 +83,7 @@
         </div>
     </div>
 
-    <!-- Всплывающее окно с логом обновления -->
+    <!-- Firmware update log modal -->
     <div id="update-log-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="modal-header" data-lang="firmware_update">Обновление прошивки</h2>
@@ -92,7 +92,7 @@
         </div>
     </div>
 
-    <!-- Спиннер переключения плеера -->
+    <!-- Player switching spinner -->
     <div class="spinner-overlay">
         <div class="spinner-container">
             <div class="spinner"></div>
@@ -100,7 +100,7 @@
         </div>
     </div>
 
-    <!-- Кастомный confirm диалог -->
+    <!-- Custom confirm dialog -->
     <div id="custom-confirm" class="confirm-overlay">
         <div class="confirm-content">
             <div id="confirm-message" class="confirm-message"></div>
@@ -111,7 +111,7 @@
         </div>
     </div>
 
-    <!-- Кастомный alert диалог -->
+    <!-- Custom alert dialog -->
     <div id="custom-alert" class="confirm-overlay">
         <div class="confirm-content">
             <div id="alert-message" class="confirm-message"></div>
@@ -212,7 +212,7 @@
         </div>
     </div>
 
-    <!-- Подключение JavaScript -->
+    <!-- JavaScript includes -->
     <script src="assets/js/jquery-3.7.1.min.js"></script>
     <script src="assets/js/app.js?v=<?php echo VERSION; ?>&t=<?php echo time(); ?>"></script>
 </body>
