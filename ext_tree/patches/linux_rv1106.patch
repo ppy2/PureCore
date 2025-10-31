@@ -52,7 +52,7 @@ diff -Naur original_dir/sound/soc/codecs/dummy-codec.c modified_dir/sound/soc/co
  };
 diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-31 22:00:03.793605588 +0300
++++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-31 23:33:56.724074521 +0300
 @@ -4,18 +4,14 @@
   *
   * Copyright (c) 2018 Rockchip Electronics Co. Ltd.
@@ -945,7 +945,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -446,2088 +593,3319 @@
+@@ -446,2088 +593,3327 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -3587,12 +3587,20 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    
 +    if (i2s_tdm->auto_mute_active && !i2s_tdm->user_mute_priority) {
 +        i2s_tdm->auto_mute_active = false;
++        i2s_tdm->mute = false;
 +        if (i2s_tdm->mute_gpio) {
 +            gpiod_set_value(i2s_tdm->mute_gpio, 0);
 +            if (i2s_tdm->mute_inv_gpio)
 +                gpiod_set_value(i2s_tdm->mute_inv_gpio, 1);
 +        }
 +        dev_info(i2s_tdm->dev, "POST-MUTE: Unmuted after %dms\n", i2s_tdm->postmute_delay_ms);
++        
++        /* Notify ALSA control about mute state change */
++        if (i2s_tdm->mute_kcontrol && i2s_tdm->dai && i2s_tdm->dai->component) {
++            snd_ctl_notify(i2s_tdm->dai->component->card->snd_card, 
++                          SNDRV_CTL_EVENT_MASK_VALUE, 
++                          &i2s_tdm->mute_kcontrol->id);
++        }
 +    } else {
 +        dev_info(i2s_tdm->dev, "POST-MUTE: Unmute BLOCKED\n");
 +    }
@@ -5185,8 +5193,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +
 +    i2s_tdm->dev = &pdev->dev;
 +    i2s_tdm->volume = 100;
-+    /* Initial mute state = false (sound on) to match player expectations */
-+    i2s_tdm->mute = false; 
++    /* Initial mute state = true (muted on boot) */
++    i2s_tdm->mute = true; 
 +    
 +    /* Initialize ALSA control pointers */
 +    i2s_tdm->mute_kcontrol = NULL;
@@ -5217,13 +5225,13 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    dev_err(&pdev->dev, "Failed to get mute GPIO: %d\n", ret);
 +    i2s_tdm->mute_gpio = NULL;
 +    } else if (i2s_tdm->mute_gpio) {
-+    /* Set GPIO: mute=false -> GPIO=0 (sound on) */
++    /* Set GPIO: mute=true -> GPIO=1 (muted) */
 +    gpiod_set_value(i2s_tdm->mute_gpio, i2s_tdm->mute ? 1 : 0);
 +    dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: GPIO mute initialized to %d (sound %s)\n", 
 +         i2s_tdm->mute ? 1 : 0, i2s_tdm->mute ? "OFF" : "ON");
 +    }
 +
-+    /* Initialize inverted mute GPIO (GPIO1_C5, pin 53) */
++    /* Initialize inverted mute GPIO (GPIO2_A5, pin 69) - LOW when muted */
 +    i2s_tdm->mute_inv_gpio = devm_gpiod_get_optional(&pdev->dev, "mute-inv", GPIOD_OUT_LOW);
 +    if (IS_ERR(i2s_tdm->mute_inv_gpio)) {
 +        ret = PTR_ERR(i2s_tdm->mute_inv_gpio);
