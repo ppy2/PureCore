@@ -70,6 +70,7 @@ i2s0_8ch: i2s@ffae0000 {
     	rockchip,cru = <&cru>;
     	rockchip,grf = <&grf>;
     	mute-gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+    	mute-inv-gpios = <&gpio2 RK_PA5 GPIO_ACTIVE_HIGH>;
     	dsd-enable-gpios = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
     	pinctrl-names = "default";
     	pinctrl-0 = <&i2s0_lrck
@@ -81,6 +82,7 @@ i2s0_8ch: i2s@ffae0000 {
         	&i2s0_sdo2_sdi2
         	&i2s0_sdo3_sdi1
         	&mute_gpio
+        	&mute_inv_gpio
         	&dsd_on_gpio
         	&mclk_sel_gpio>;
     	status = "disable";

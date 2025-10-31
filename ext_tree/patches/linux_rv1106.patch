@@ -52,7 +52,7 @@ diff -Naur original_dir/sound/soc/codecs/dummy-codec.c modified_dir/sound/soc/co
  };
 diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-25 12:22:13.206835894 +0300
++++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-31 22:00:03.793605588 +0300
 @@ -4,18 +4,14 @@
   *
   * Copyright (c) 2018 Rockchip Electronics Co. Ltd.
@@ -107,7 +107,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  
  #define DRV_NAME "rockchip-i2s-tdm"
  
-@@ -39,328 +48,461 @@
+@@ -39,328 +48,462 @@
  #define HAVE_SYNC_RESET
  #endif
  
@@ -276,6 +276,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    int volume;
 +    bool mute;
 +    struct gpio_desc *mute_gpio;
++    struct gpio_desc *mute_inv_gpio;  /* Inverted mute signal (GPIO2_A5, pin 69) */
 +    
 +    /* MCLK multiplier for switching 512/1024 */
 +    int mclk_multiplier;            // MCLK multiplier: 512 or 1024
@@ -821,7 +822,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -369,16 +511,18 @@
+@@ -369,16 +512,18 @@
   */
  static void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
@@ -842,7 +843,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static inline void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
  }
-@@ -386,57 +530,59 @@
+@@ -386,57 +531,59 @@
  
  static void rockchip_i2s_tdm_reset(struct reset_control *rc)
  {
@@ -944,7 +945,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -446,2088 +592,3273 @@
+@@ -446,2088 +593,3319 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -2678,6 +2679,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = false;
@@ -2706,6 +2709,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = false;
@@ -2734,6 +2739,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = false;
@@ -2762,6 +2769,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = false;
@@ -2791,6 +2800,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = false;
@@ -2825,6 +2836,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = true;
@@ -2859,6 +2872,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = true;
@@ -2894,6 +2909,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +                
 +                i2s_tdm->format_change_mute = true;
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +                msleep(50);
 +            }
 +            i2s_tdm->dsd_mode_active = true;
@@ -3117,6 +3134,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        if (!i2s_tdm->user_mute_priority && !i2s_tdm->format_change_mute) {
 +            if (i2s_tdm->mute_gpio) {
 +                gpiod_set_value(i2s_tdm->mute_gpio, 1);
++                if (i2s_tdm->mute_inv_gpio)
++                    gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +            }
 +            i2s_tdm->auto_mute_active = true;
 +            rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
@@ -3461,6 +3480,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        
 +        /* Enable mute instantly */
 +        rockchip_i2s_tdm_apply_mute(i2s_tdm, true);
++        dev_info(i2s_tdm->dev, "User mute ON: mute_gpio=%p inv_gpio=%p\n", 
++                 i2s_tdm->mute_gpio, i2s_tdm->mute_inv_gpio);
 +        
 +    } else {
 +        /* User disabled mute - reset priority but keep auto_mute if no signal */
@@ -3505,6 +3526,10 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* Enable mute INSTANTLY */
 +        if (i2s_tdm->mute_gpio)
 +            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++        if (i2s_tdm->mute_inv_gpio) {
++            gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
++            dev_info(i2s_tdm->dev, "Set inverted GPIO to 0 (mute ON)\n");
++        }
 +        
 +        /* Software mute through volume = 0% for DACs without GPIO mute */
 +        /* Clear active DMA buffers immediately for instant mute effect */
@@ -3527,6 +3552,10 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* Disable mute - called only from scheduled work after trigger start */
 +        if (i2s_tdm->mute_gpio) {
 +            gpiod_set_value(i2s_tdm->mute_gpio, 0);
++            if (i2s_tdm->mute_inv_gpio) {
++                gpiod_set_value(i2s_tdm->mute_inv_gpio, 1);
++                dev_info(i2s_tdm->dev, "Set inverted GPIO to 1 (mute OFF)\n");
++            }
 +        }
 +    }
 +}
@@ -3560,6 +3589,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        i2s_tdm->auto_mute_active = false;
 +        if (i2s_tdm->mute_gpio) {
 +            gpiod_set_value(i2s_tdm->mute_gpio, 0);
++            if (i2s_tdm->mute_inv_gpio)
++                gpiod_set_value(i2s_tdm->mute_inv_gpio, 1);
 +        }
 +        dev_info(i2s_tdm->dev, "POST-MUTE: Unmuted after %dms\n", i2s_tdm->postmute_delay_ms);
 +    } else {
@@ -3733,6 +3764,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +            cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
 +            i2s_tdm->format_change_mute = true;
 +            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            if (i2s_tdm->mute_inv_gpio)
++                gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +            msleep(50);
 +        }
 +        i2s_tdm->dsd_mode_active = false;
@@ -3750,6 +3783,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +            cancel_delayed_work_sync(&i2s_tdm->mute_post_work);
 +            i2s_tdm->format_change_mute = true;
 +            gpiod_set_value(i2s_tdm->mute_gpio, 1);
++            if (i2s_tdm->mute_inv_gpio)
++                gpiod_set_value(i2s_tdm->mute_inv_gpio, 0);
 +            msleep(50);
 +        }
 +        i2s_tdm->dsd_mode_active = true;
@@ -5186,6 +5221,18 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    gpiod_set_value(i2s_tdm->mute_gpio, i2s_tdm->mute ? 1 : 0);
 +    dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: GPIO mute initialized to %d (sound %s)\n", 
 +         i2s_tdm->mute ? 1 : 0, i2s_tdm->mute ? "OFF" : "ON");
++    }
++
++    /* Initialize inverted mute GPIO (GPIO1_C5, pin 53) */
++    i2s_tdm->mute_inv_gpio = devm_gpiod_get_optional(&pdev->dev, "mute-inv", GPIOD_OUT_LOW);
++    if (IS_ERR(i2s_tdm->mute_inv_gpio)) {
++        ret = PTR_ERR(i2s_tdm->mute_inv_gpio);
++        dev_err(&pdev->dev, "Failed to get inverted mute GPIO: %d\n", ret);
++        i2s_tdm->mute_inv_gpio = NULL;
++    } else if (i2s_tdm->mute_inv_gpio) {
++        gpiod_set_value(i2s_tdm->mute_inv_gpio, i2s_tdm->mute ? 0 : 1);
++        dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: Inverted mute GPIO initialized to %d\n", 
++             i2s_tdm->mute ? 0 : 1);
 +    }
 +
 +    /* Initialize DSD-on GPIO */
