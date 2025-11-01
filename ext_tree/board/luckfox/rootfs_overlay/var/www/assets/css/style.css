@@ -1516,6 +1516,34 @@ input[name="dsd_swap"][value="1"]:checked ~ .toggle-label-compact .toggle-option
     transform: translateX(50%) translateY(-50%);
 }
 
+input[name="freq_swap"][value="0"]:checked ~ .toggle-label-compact .toggle-slider-compact {
+    left: -2px;
+}
+
+input[name="freq_swap"][value="1"]:checked ~ .toggle-label-compact .toggle-slider-compact {
+    left: 56px;
+}
+
+input[name="freq_swap"][value="0"]:checked ~ .toggle-label-compact .toggle-option-compact.left {
+    color: #fff;
+    left: 29px;
+    transform: translateX(-50%) translateY(-50%);
+}
+
+input[name="freq_swap"][value="0"]:checked ~ .toggle-label-compact .toggle-option-compact.right {
+    color: #888;
+}
+
+input[name="freq_swap"][value="1"]:checked ~ .toggle-label-compact .toggle-option-compact.left {
+    color: #888;
+}
+
+input[name="freq_swap"][value="1"]:checked ~ .toggle-label-compact .toggle-option-compact.right {
+    color: #fff;
+    right: 29px;
+    transform: translateX(50%) translateY(-50%);
+}
+
 /* --------------------------------------------------
    BUTTON DISSOLVE ANIMATION
 -------------------------------------------------- */

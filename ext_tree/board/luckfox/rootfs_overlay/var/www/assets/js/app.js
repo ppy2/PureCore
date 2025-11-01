@@ -84,7 +84,8 @@ $(document).ready(function () {
             'cancel_btn': 'Отмена',
             'apply_reboot': 'Применить и перезагрузить',
             'pcm_swap_title': 'PCM Swap',
-            'dsd_swap_title': 'DSD Swap'
+            'dsd_swap_title': 'DSD Swap',
+            'freq_swap_title': '44/48 Swap'
         },
         'en': {
             'alsa_output': 'ALSA Output:',
@@ -128,7 +129,8 @@ $(document).ready(function () {
             'cancel_btn': 'Cancel',
             'apply_reboot': 'Apply & Reboot',
             'pcm_swap_title': 'PCM Swap',
-            'dsd_swap_title': 'DSD Swap'
+            'dsd_swap_title': 'DSD Swap',
+            'freq_swap_title': '44/48 Swap'
         },
         'de': {
             'alsa_output': 'ALSA Ausgang:',
@@ -172,7 +174,8 @@ $(document).ready(function () {
             'cancel_btn': 'Abbrechen',
             'apply_reboot': 'Anwenden & Neustart',
             'pcm_swap_title': 'PCM Swap',
-            'dsd_swap_title': 'DSD Swap'
+            'dsd_swap_title': 'DSD Swap',
+            'freq_swap_title': '44/48 Swap'
         },
         'fr': {
             'alsa_output': 'Sortie ALSA:',
@@ -216,7 +219,8 @@ $(document).ready(function () {
             'cancel_btn': 'Annuler',
             'apply_reboot': 'Appliquer et redémarrer',
             'pcm_swap_title': 'PCM Swap',
-            'dsd_swap_title': 'DSD Swap'
+            'dsd_swap_title': 'DSD Swap',
+            'freq_swap_title': '44/48 Swap'
         },
         'zh': {
             'alsa_output': 'ALSA 输出:',
@@ -260,7 +264,8 @@ $(document).ready(function () {
             'cancel_btn': '取消',
             'apply_reboot': '应用并重启',
             'pcm_swap_title': 'PCM Swap',
-            'dsd_swap_title': 'DSD Swap'
+            'dsd_swap_title': 'DSD Swap',
+            'freq_swap_title': '44/48 Swap'
         }
     };
 
@@ -1151,6 +1156,13 @@ $(document).ready(function () {
                     $('#modal-dsd-normal').prop('checked', true);
                 }
                 
+                // Set freq swap toggle
+                if (data.freq_swap === '1') {
+                    $('#modal-freq-swap').prop('checked', true);
+                } else {
+                    $('#modal-freq-normal').prop('checked', true);
+                }
+                
                 // Set submode buttons active state
                 $('.i2s-submode-btn').removeClass('active');
                 $(`.i2s-submode-btn[value="${data.submode}"]`).addClass('active');
@@ -1283,6 +1295,8 @@ $(document).ready(function () {
                 formData.append('pcm_swap', this.value);
             } else if (this.name === 'dsd_swap') {
                 formData.append('dsd_swap', this.value);
+            } else if (this.name === 'freq_swap') {
+                formData.append('freq_swap', this.value);
             }
             
             // Apply setting immediately

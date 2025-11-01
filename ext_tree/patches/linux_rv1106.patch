@@ -52,7 +52,7 @@ diff -Naur original_dir/sound/soc/codecs/dummy-codec.c modified_dir/sound/soc/co
  };
 diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-13 23:11:14.000000000 +0300
-+++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-10-31 23:33:56.724074521 +0300
++++ modified_dir/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-01 16:26:11.184929557 +0300
 @@ -4,18 +4,14 @@
   *
   * Copyright (c) 2018 Rockchip Electronics Co. Ltd.
@@ -107,7 +107,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  
  #define DRV_NAME "rockchip-i2s-tdm"
  
-@@ -39,328 +48,462 @@
+@@ -39,328 +48,464 @@
  #define HAVE_SYNC_RESET
  #endif
  
@@ -277,6 +277,8 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    bool mute;
 +    struct gpio_desc *mute_gpio;
 +    struct gpio_desc *mute_inv_gpio;  /* Inverted mute signal (GPIO2_A5, pin 69) */
++    struct gpio_desc *freq_domain_gpio;  /* Frequency domain indicator GPIO (GPIO1_D1) 44.1/48 kHz */
++    bool freq_domain_invert;        // Invert frequency domain GPIO polarity
 +    
 +    /* MCLK multiplier for switching 512/1024 */
 +    int mclk_multiplier;            // MCLK multiplier: 512 or 1024
@@ -822,7 +824,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -369,16 +512,18 @@
+@@ -369,16 +514,18 @@
   */
  static void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
@@ -843,7 +845,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  static inline void rockchip_i2s_tdm_sync_reset(struct rk_i2s_tdm_dev *i2s_tdm)
  {
  }
-@@ -386,57 +531,59 @@
+@@ -386,57 +533,59 @@
  
  static void rockchip_i2s_tdm_reset(struct reset_control *rc)
  {
@@ -945,7 +947,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
  }
  
  /*
-@@ -446,2088 +593,3327 @@
+@@ -446,2088 +595,3383 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -2603,7 +2605,13 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +            mclk = i2s_tdm->mclk_tx;
 +            if( i2s_tdm->mclk_ext_mux ) {
 +                /* Consider MCLK multiplier for external PLL */
-+                if( params_rate(params) % 44100 ) {
++                bool is_48k_family = (params_rate(params) % 44100) != 0;
++                
++                /* Apply frequency domain inversion if enabled */
++                if (i2s_tdm->freq_domain_invert)
++                    is_48k_family = !is_48k_family;
++                
++                if( is_48k_family ) {
 +                    clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_48);
 +                    /* 48kHz family: 24.576MHz (512x) or 49.152MHz (1024x) */
 +                    if (i2s_tdm->mclk_multiplier == 1024) {
@@ -3739,6 +3747,37 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +}
 +
 +static DEVICE_ATTR(dsd_physical_swap, 0644, dsd_physical_swap_show, dsd_physical_swap_store);
++
++/* Frequency domain GPIO polarity control sysfs interface */
++static ssize_t freq_domain_invert_show(struct device *dev,
++                                       struct device_attribute *attr,
++                                       char *buf)
++{
++    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
++    return sprintf(buf, "%d\n", i2s_tdm->freq_domain_invert ? 1 : 0);
++}
++
++static ssize_t freq_domain_invert_store(struct device *dev,
++                                        struct device_attribute *attr,
++                                        const char *buf, size_t count)
++{
++    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
++    int value;
++    
++    if (sscanf(buf, "%d", &value) != 1)
++        return -EINVAL;
++    
++    if (value != 0 && value != 1)
++        return -EINVAL;
++    
++    i2s_tdm->freq_domain_invert = (value == 1);
++    dev_info(dev, "Frequency domain GPIO polarity inversion %s\n", 
++             i2s_tdm->freq_domain_invert ? "ENABLED" : "DISABLED");
++    
++    return count;
++}
++
++static DEVICE_ATTR(freq_domain_invert, 0644, freq_domain_invert_show, freq_domain_invert_store);
 +
 +/* Manual DSD mode control sysfs interface */
 +static ssize_t dsd_mode_manual_show(struct device *dev,
@@ -5263,6 +5302,17 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    i2s_tdm->pcm_channel_swap = false;   /* PCM channel swap disabled by default */
 +    i2s_tdm->dsd_physical_swap = false;  /* DSD physical swap disabled by default */
 +
++    /* Initialize frequency domain GPIO (GPIO1_D1) polarity control */
++    i2s_tdm->freq_domain_invert = false;  /* Default: no inversion */
++    i2s_tdm->freq_domain_gpio = devm_gpiod_get_optional(&pdev->dev, "freq-domain", GPIOD_ASIS);
++    if (IS_ERR(i2s_tdm->freq_domain_gpio)) {
++        /* GPIO might be controlled by gpio-mux-clock, this is normal */
++        i2s_tdm->freq_domain_gpio = NULL;
++        dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: Frequency domain GPIO controlled by gpio-mux-clock\n");
++    } else if (i2s_tdm->freq_domain_gpio) {
++        dev_info(&pdev->dev, "ROCKCHIP_I2S_TDM: Frequency domain GPIO available for polarity control\n");
++    }
++
 +    of_id = of_match_device(rockchip_i2s_tdm_match, &pdev->dev);
 +    if (!of_id)
 +    return -EINVAL;
@@ -5809,6 +5859,13 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +        /* Not critical, continue */
 +    }
 +    
++    /* Create sysfs attribute for frequency domain GPIO polarity control */
++    ret = device_create_file(&pdev->dev, &dev_attr_freq_domain_invert);
++    if (ret) {
++        dev_err(&pdev->dev, "Failed to create freq_domain_invert sysfs attribute: %d\n", ret);
++        /* Not critical, continue */
++    }
++    
 +    /* Create sysfs attribute for manual DSD mode control */
 +    ret = device_create_file(&pdev->dev, &dev_attr_dsd_mode_manual);
 +    if (ret) {
@@ -5865,6 +5922,7 @@ diff -Naur original_dir/sound/soc/rockchip/rockchip_i2s_tdm.c modified_dir/sound
 +    device_remove_file(&pdev->dev, &dev_attr_dsd_sample_swap);
 +    device_remove_file(&pdev->dev, &dev_attr_pcm_channel_swap);
 +    device_remove_file(&pdev->dev, &dev_attr_dsd_physical_swap);
++    device_remove_file(&pdev->dev, &dev_attr_freq_domain_invert);
 +
 +    pm_runtime_disable(&pdev->dev);
 +    if (!pm_runtime_status_suspended(&pdev->dev))

@@ -196,6 +196,20 @@
                         </div>
                     </div>
                 </div>
+                <div class="i2s-group">
+                    <div class="i2s-group-header">
+                        <h3 data-lang="freq_swap_title">44/48 Swap</h3>
+                        <div class="toggle-switch-compact">
+                            <input type="radio" name="freq_swap" value="0" id="modal-freq-normal" class="toggle-input-compact">
+                            <input type="radio" name="freq_swap" value="1" id="modal-freq-swap" class="toggle-input-compact">
+                            <label class="toggle-label-compact">
+                                <div class="toggle-slider-compact"></div>
+                                <span class="toggle-option-compact left" onclick="document.getElementById('modal-freq-normal').click()">OFF</span>
+                                <span class="toggle-option-compact right" onclick="document.getElementById('modal-freq-swap').click()">ON</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 <div class="i2s-warning">
                     <span class="i2s-pulse" data-lang="warning_attention">Внимание!</span>
                     <span data-lang="warning_text1">Выход MCLK в режимах PLL и EXT имеет разные настройки (OUTPUT/INPUT).</span> <span data-lang="warning_text2">После изменения настроек I2S необходима перезагрузка системы для вступления в силу.</span>

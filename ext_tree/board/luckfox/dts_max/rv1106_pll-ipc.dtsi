@@ -6,7 +6,7 @@
 
 / {
 	chosen {
-		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 root=/dev/mmcblk1p7 rootwait snd_soc_core.prealloc_buffer_size_kbytes=128 coherent_pool=0";
+		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 root=/dev/mmcblk1p7 rootwait snd_soc_core.prealloc_buffer_size_kbytes=1024 coherent_pool=2M";
 	};
 
 
@@ -49,6 +49,7 @@
 		mute-gpios = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
 		mute-inv-gpios = <&gpio2 RK_PA5 GPIO_ACTIVE_HIGH>;
 		dsd-enable-gpios = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+		freq-domain-gpios = <&gpio1 RK_PD1 GPIO_ACTIVE_HIGH>;
                 pinctrl-names = "default";
 	        pinctrl-0 = <&i2s0_lrck 
 				&i2s0_mclk 

@@ -1,6 +1,22 @@
 #!/bin/sh
 
+# Find mixer control with playback volume and switch capabilities
+MIXER=$(amixer 2>/dev/null | awk '
+    /^Simple mixer control/ {
+        control = $0
+        gsub(/.*'\''/, "", control)
+        gsub(/'\''.*/, "", control)
+    }
+    /Capabilities:/ && /pvolume/ && /pswitch/ {
+        print control
+        exit
+    }
+')
+# Fallback to first available control if none found
+[ -z "$MIXER" ] && MIXER=$(amixer 2>/dev/null | awk -F "'" 'NR==1 {print $2; exit}')
+
 echo 1 > /sys/devices/platform/ffae0000.i2s/mute
+[ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
 
 	if [ -f /data/ethaddr.txt ]; then
 	    MAC=`cat /data/ethaddr.txt`
@@ -22,8 +38,15 @@ echo 1 > /sys/devices/platform/ffae0000.i2s/mute
 
 grep MCLK=1024 /etc/i2s.conf && echo 1024 > /sys/devices/platform/ffae0000.i2s/mclk_multiplier
 echo 300 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 
-echo 1 > /sys/devices/platform/ffae0000.i2s/dsd_physical_swap
-echo 0 > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap
+
+PCM_SWAP=$(grep '^PCM_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
+[ -n "$PCM_SWAP" ] && echo "$PCM_SWAP" > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap || echo 0 > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap
+
+DSD_SWAP=$(grep '^DSD_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
+[ -n "$DSD_SWAP" ] && echo "$DSD_SWAP" > /sys/devices/platform/ffae0000.i2s/dsd_physical_swap || echo 1 > /sys/devices/platform/ffae0000.i2s/dsd_physical_swap
+
+FREQ_SWAP=$(grep '^FREQ_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
+[ -n "$FREQ_SWAP" ] && echo "$FREQ_SWAP" > /sys/devices/platform/ffae0000.i2s/freq_domain_invert || echo 0 > /sys/devices/platform/ffae0000.i2s/freq_domain_invert
 
 
 rcS()

@@ -7,7 +7,7 @@ $config_file = '/etc/i2s.conf';
  * Function for reading the current mode (MODE), MCLK and SUBMODE from configuration file.
  */
 function readConfig($filePath) {
-    $result = ['mode' => '', 'mclk' => '', 'submode' => '', 'pcm_swap' => '0', 'dsd_swap' => '1'];
+    $result = ['mode' => '', 'mclk' => '', 'submode' => '', 'pcm_swap' => '0', 'dsd_swap' => '1', 'freq_swap' => '0'];
     if (file_exists($filePath)) {
         $contents = file_get_contents($filePath);
         if ($contents !== false) {
@@ -28,6 +28,9 @@ function readConfig($filePath) {
             if (preg_match('/^DSD_SWAP=([01])/m', $contents, $matches)) {
                 $result['dsd_swap'] = $matches[1];
             }
+            if (preg_match('/^FREQ_SWAP=([01])/m', $contents, $matches)) {
+                $result['freq_swap'] = $matches[1];
+            }
         }
     }
     
@@ -43,6 +46,13 @@ function readConfig($filePath) {
         $dsd_current = trim(file_get_contents('/sys/devices/platform/ffae0000.i2s/dsd_physical_swap'));
         if ($dsd_current !== false) {
             $result['dsd_swap'] = $dsd_current;
+        }
+    }
+    
+    if (file_exists('/sys/devices/platform/ffae0000.i2s/freq_domain_invert')) {
+        $freq_current = trim(file_get_contents('/sys/devices/platform/ffae0000.i2s/freq_domain_invert'));
+        if ($freq_current !== false) {
+            $result['freq_swap'] = $freq_current;
         }
     }
     
@@ -182,6 +192,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // If frequency domain swap setting is changed
+    if (isset($_POST['freq_swap'])) {
+        $freq_swap = $_POST['freq_swap'];
+        if (in_array($freq_swap, ['0', '1'])) {
+            // Write to sysfs
+            file_put_contents('/sys/devices/platform/ffae0000.i2s/freq_domain_invert', $freq_swap);
+            
+            // Update config file
+            updateConfigValue($config_file, 'FREQ_SWAP', $freq_swap);
+        }
+    }
+
     
     // Reboot processing removed - now using reboot.php
 
@@ -197,6 +219,7 @@ $current_mclk = $config['mclk'];
 $current_submode = $config['submode'];
 $current_pcm_swap = $config['pcm_swap'];
 $current_dsd_swap = $config['dsd_swap'];
+$current_freq_swap = $config['freq_swap'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -819,6 +842,22 @@ $current_dsd_swap = $config['dsd_swap'];
                             <div class="toggle-slider-compact"></div>
                             <span class="toggle-option-compact left" onclick="document.getElementById('dsd-normal').click()">OFF</span>
                             <span class="toggle-option-compact right" onclick="document.getElementById('dsd-swap').click()">ON</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="group">
+                <div class="group-header">
+                    <h2 data-lang="freq_swap_title">44/48 Swap</h2>
+                    <div class="toggle-switch-compact">
+                        <input type="radio" name="freq_swap" value="0" id="freq-normal" class="toggle-input-compact" 
+                               <?php if ($current_freq_swap === '0') echo 'checked'; ?>>
+                        <input type="radio" name="freq_swap" value="1" id="freq-swap" class="toggle-input-compact" 
+                               <?php if ($current_freq_swap === '1') echo 'checked'; ?>>
+                        <label class="toggle-label-compact">
+                            <div class="toggle-slider-compact"></div>
+                            <span class="toggle-option-compact left" onclick="document.getElementById('freq-normal').click()">OFF</span>
+                            <span class="toggle-option-compact right" onclick="document.getElementById('freq-swap').click()">ON</span>
                         </label>
                     </div>
                 </div>
