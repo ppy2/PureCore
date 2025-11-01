@@ -50,6 +50,7 @@ EXCLUDE_PATTERNS=(
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S00platform$"
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S20linkmount$"
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S94ioi2s$"
+    "^ext_tree/board/luckfox/config/uboot-env.txt$"
     
     # Platform-specific helper scripts (DTB switching - different for MAX/Ultra)
     "^ext_tree/board/luckfox/rootfs_overlay/opt/2.*\.sh$"
