@@ -47,7 +47,7 @@ EXCLUDE_PATTERNS=(
     "^ext_tree/board/luckfox/rootfs_overlay/etc/fw_env.config$"
     
     # Platform-specific init scripts (MTD vs eMMC specific)
-    "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S01RkLunch$"
+    "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S00platform$"
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S20linkmount$"
     "^ext_tree/board/luckfox/rootfs_overlay/etc/init.d/S94ioi2s$"
     
