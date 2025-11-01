@@ -32,7 +32,6 @@ EXCLUDE_PATTERNS=(
     "^ext_tree/external.mk$"
     
     # Platform-specific kernel/boot configs
-    "^ext_tree/board/luckfox/config/"
     "^ext_tree/board/luckfox/dts_max/"
     
     # Build hooks (different post-build.sh for MAX vs Ultra)
