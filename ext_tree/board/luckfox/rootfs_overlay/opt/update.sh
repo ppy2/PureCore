@@ -38,7 +38,7 @@ fi
 killall status_monitor
 rm -f /data/*.img
 
-sshpass -p 'luckfox' rsync -acv --delete --size-only --one-file-system \
+sshpass -p 'luckfox' rsync -acv --delete-before --one-file-system \
 --exclude=.git \
 --exclude=/dev \
 --exclude=/proc \
