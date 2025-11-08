@@ -4,7 +4,7 @@ set -ve
 
 MAINDIR=`pwd`
 
-export LINUX_DIR=`ls -d output/build/linux-main`
+export LINUX_DIR=`ls -d output/build/linux-custom`
 
 # Copy kernel and DTB to binaries
 cp $LINUX_DIR/arch/arm/boot/zImage $BINARIES_DIR/
