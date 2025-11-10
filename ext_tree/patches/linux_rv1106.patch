@@ -1,3 +1,88 @@
+diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-inno-usb2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/phy/rockchip/phy-rockchip-inno-usb2.c
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-inno-usb2.c	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/phy/rockchip/phy-rockchip-inno-usb2.c	2025-11-10 12:55:04.382546340 +0300
+@@ -1047,6 +1047,8 @@
+ 	bool vbus_det_en;
+ 	int ret = 0;
+ 
++	dev_info(rphy->dev, "USB2PHY set_mode called: mode=%d, submode=%d\n", mode, submode);
++
+ 	if (rport->port_id != USB2PHY_PORT_OTG)
+ 		return ret;
+ 
+@@ -1069,6 +1071,9 @@
+ 		 * enable vbus detect on otg mode.
+ 		 */
+ 		fallthrough;
++	case PHY_MODE_USB_DEVICE_HS:
++	case PHY_MODE_USB_DEVICE_FS:
++	case PHY_MODE_USB_DEVICE_LS:
+ 	case PHY_MODE_USB_DEVICE:
+ 		/* Disable VBUS supply */
+ 		rockchip_set_vbus_power(rport, false);
+@@ -1079,6 +1084,9 @@
+ 		rport->perip_connected = true;
+ 		vbus_det_en = true;
+ 		break;
++	case PHY_MODE_USB_HOST_HS:
++	case PHY_MODE_USB_HOST_FS:
++	case PHY_MODE_USB_HOST_LS:
+ 	case PHY_MODE_USB_HOST:
+ 		/* Enable VBUS supply */
+ 		ret = rockchip_set_vbus_power(rport, true);
+@@ -1093,7 +1101,7 @@
+ 		if (rport->vbus_always_on)
+ 			extcon_set_state(rphy->edev, EXTCON_USB, false);
+ 		rport->perip_connected = false;
+-		fallthrough;
++		break;
+ 	case PHY_MODE_INVALID:
+ 		vbus_det_en = false;
+ 		break;
+@@ -2478,7 +2486,11 @@
+ 	rphy->chg_state = USB_CHG_STATE_UNDEFINED;
+ 	rphy->chg_type = POWER_SUPPLY_TYPE_UNKNOWN;
+ 	rphy->edev_self = false;
+-	rphy->irq = platform_get_irq(pdev, 0);
++	rphy->irq = platform_get_irq_optional(pdev, 0);
++	if (rphy->irq < 0) {
++		rphy->irq = 0; /* No main IRQ, use port-specific IRQs only */
++		dev_info(rphy->dev, "No main USB2PHY IRQ found, using port-specific IRQs only\n");
++	}
+ 	platform_set_drvdata(pdev, rphy);
+ 
+ 	ret = rockchip_usb2phy_extcon_register(rphy);
+@@ -3045,6 +3057,8 @@
+ 
+ static int rv1106_usb2phy_tuning(struct rockchip_usb2phy *rphy)
+ {
++	dev_info(rphy->dev, "Applying kernel 6.1 USB2PHY tuning for high-speed detection\n");
++
+ 	/* Always enable pre-emphasis in SOF & EOP & chirp & non-chirp state */
+ 	phy_update_bits(rphy->phy_base + 0x30, GENMASK(2, 0), 0x07);
+ 
+@@ -3056,8 +3070,8 @@
+ 		phy_update_bits(rphy->phy_base + 0x40, GENMASK(5, 3), (0x03 << 3));
+ 	}
+ 
+-	/* Set RX Squelch trigger point configure to 4'b0000(112.5 mV) */
+-	phy_update_bits(rphy->phy_base + 0x64, GENMASK(6, 3), (0x00 << 3));
++	/* Set RX Squelch trigger point configure to 4'b0110(162.5 mV) for better high-speed detection */
++	phy_update_bits(rphy->phy_base + 0x64, GENMASK(6, 3), (0x06 << 3));
+ 
+ 	/* Turn off differential receiver by default to save power */
+ 	phy_clear_bits(rphy->phy_base + 0x100, BIT(6));
+@@ -3065,8 +3079,8 @@
+ 	/* Set 45ohm HS ODT value to 5'b10111 to increase driver strength */
+ 	phy_update_bits(rphy->phy_base + 0x11c, GENMASK(4, 0), 0x17);
+ 
+-	/* Set Tx HS eye height tuning to 3'b011(462 mV)*/
+-	phy_update_bits(rphy->phy_base + 0x124, GENMASK(4, 2), (0x03 << 2));
++	/* Set Tx HS eye height tuning to 3'b111(548 mV) for better signal integrity in kernel 6.1 */
++	phy_update_bits(rphy->phy_base + 0x124, GENMASK(4, 2), (0x07 << 2));
+ 
+ 	/* Bypass Squelch detector calibration */
+ 	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile
 --- linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile	2025-11-07 17:11:17.088713026 +0300

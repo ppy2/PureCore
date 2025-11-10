@@ -1476,7 +1476,7 @@ mmc0 {
                         snps,dis-tx-ipgap-linecheck-quirk;
                         snps,usb2-gadget-lpm-disable;
                         snps,usb2-lpm-disable;
-                        status = "disabled";
+                        status = "okay";
                 };
         };
 
