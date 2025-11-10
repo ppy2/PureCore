@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot -g95f5f12a-dirty Configuration
+# Buildroot v1.6.1-10-g5fec7ef3-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_EXTERNAL_NAMES="ext_tree"
@@ -443,14 +443,12 @@ BR2_LINUX_KERNEL=y
 # BR2_LINUX_KERNEL_LATEST_CIP_VERSION is not set
 # BR2_LINUX_KERNEL_LATEST_CIP_RT_VERSION is not set
 # BR2_LINUX_KERNEL_CUSTOM_VERSION is not set
-# BR2_LINUX_KERNEL_CUSTOM_TARBALL is not set
-BR2_LINUX_KERNEL_CUSTOM_GIT=y
+BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
+# BR2_LINUX_KERNEL_CUSTOM_GIT is not set
 # BR2_LINUX_KERNEL_CUSTOM_HG is not set
 # BR2_LINUX_KERNEL_CUSTOM_SVN is not set
-BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/ppy2/ale-linux-rv1106.git"
-BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="main"
-# BR2_LINUX_KERNEL_CUSTOM_REPO_GIT_SUBMODULES is not set
-BR2_LINUX_KERNEL_VERSION="main"
+BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="https://github.com/armbian/linux-rockchip/archive/refs/heads/rk-6.1-rkr6.1.tar.gz"
+BR2_LINUX_KERNEL_VERSION="custom"
 BR2_LINUX_KERNEL_PATCH="../ext_tree/patches/linux_rv1106.patch"
 # BR2_LINUX_KERNEL_USE_DEFCONFIG is not set
 # BR2_LINUX_KERNEL_USE_ARCH_DEFAULT_CONFIG is not set
