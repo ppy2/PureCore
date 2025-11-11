@@ -289,7 +289,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linu
  };
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-10 16:09:54.515037253 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-11 15:34:13.884353274 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver
@@ -355,7 +355,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm
  
  #define DRV_NAME "rockchip-i2s-tdm"
  
-@@ -33,518 +48,594 @@
+@@ -33,518 +48,596 @@
  #define HAVE_SYNC_RESET
  #endif
  
@@ -704,8 +704,10 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm
 +        dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
 +    }
 +
-+    /* Apply routing for the new mode */
-+    rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++    /* Apply routing for the new mode - only if DSD is being enabled */
++    if (enable_dsd) {
++        rockchip_i2s_tdm_apply_dsd_physical_swap(i2s_tdm);
++    }
 +
 +    /* Wait for DAC to settle, then let normal trigger unmute handle it */
 +    if (i2s_tdm->mute_gpio) {
@@ -1390,7 +1392,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm
  }
  
  /*
-@@ -554,3024 +645,3251 @@
+@@ -554,3024 +647,3251 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
