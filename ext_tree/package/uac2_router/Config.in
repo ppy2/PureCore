@@ -1,0 +1,10 @@
+config BR2_PACKAGE_UAC2_ROUTER
+	bool "uac2_router"
+	select BR2_PACKAGE_ALSA_LIB
+	help
+	  USB UAC2 to I2S audio routing daemon.
+	  
+	  Zero-copy audio passthrough from USB Audio Class 2.0
+	  to I2S DAC with automatic sample rate detection.
+	  
+	  Supports PCM 44.1-384kHz, 16/24/32-bit.

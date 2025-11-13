@@ -103,8 +103,6 @@ i2s80:sound {
 /*************EXT_AUDIO_CODEC_ALSA_CARD_END***************/
 
 
-
-
 /***************OTHER_DEVICES*********************/
 
 	vcc_1v8: vcc-1v8 {
@@ -349,5 +347,18 @@ i2s80:sound {
 &tsadc {
 	status = "disable";
 };
+
+/***************USB_GADGET_UAC2_CONFIGURATION*********************/
+
+&usbdrd_dwc3 {
+	dr_mode = "otg";
+	status = "okay";
+};
+
+&u2phy_otg {
+	status = "okay";
+};
+
+/***************END_USB_GADGET_UAC2_CONFIGURATION***************/
 
 

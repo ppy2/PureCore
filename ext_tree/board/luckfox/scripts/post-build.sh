@@ -10,10 +10,8 @@ export LINUX_DIR=`ls -d output/build/linux-custom`
 cp $LINUX_DIR/arch/arm/boot/zImage $BINARIES_DIR/
 cp $LINUX_DIR/arch/arm/boot/dts/rv1106_pll.dtb $BINARIES_DIR/
 
-# Copy DTBs to target
-cp $LINUX_DIR/arch/arm/boot/dts/rv1106_ext.dtb $TARGET_DIR/data/boot/1024_ext.dtb
+# Copy DTB to target (PLL mode only for UAC2)
 cp $LINUX_DIR/arch/arm/boot/dts/rv1106_pll.dtb $TARGET_DIR/data/boot/1024_pll.dtb
-cp $LINUX_DIR/arch/arm/boot/dts/rv1106_512_ext.dtb $TARGET_DIR/data/boot/512_ext.dtb
 
 cd $BINARIES_DIR
 # Create boot.img with zImage and DTB

@@ -9,4 +9,5 @@ menu "Custom packages"
 	source "../ext_tree/package/status-monitor/Config.in"
 	source "../ext_tree/package/qobuz-connect/Config.in"
 	source "../ext_tree/package/tidal-connect/Config.in"
+	source "../ext_tree/package/uac2_router/Config.in"
 endmenu
