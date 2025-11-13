@@ -1,6 +1,6 @@
 <?php
 // System version
-define('VERSION', '1.6.1');
+define('VERSION', '2.0');
 ?>
 
 

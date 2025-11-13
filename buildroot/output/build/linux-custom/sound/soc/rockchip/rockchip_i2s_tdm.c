@@ -269,6 +269,15 @@ static void rockchip_i2s_tdm_handle_dsd_switch(struct rk_i2s_tdm_dev *i2s_tdm, b
         i2s_tdm->dsd_mode_active = false;
         gpiod_set_value(i2s_tdm->dsd_on_gpio, 0);
         dev_info(i2s_tdm->dev, "ROCKCHIP_I2S_TDM: DSD-on GPIO deactivated (PCM mode)\n");
+        
+        /* Reset I2S registers to clear DSD-specific bits */
+        if (i2s_tdm->mclk_external) {
+            regmap_write(i2s_tdm->regmap, I2S_XFER, 0);
+            regmap_write(i2s_tdm->regmap, 0x0010, 0);
+            regmap_write(i2s_tdm->regmap, 0x0014, 0);
+            udelay(10);
+            dev_info(i2s_tdm->dev, "DSD→PCM: I2S_XFER and regs 0x10/0x14 cleared\n");
+        }
     }
 
     /* Apply routing for the new mode - only if DSD is being enabled */
@@ -1259,23 +1268,13 @@ static int rockchip_i2s_tdm_set_mclk(struct rk_i2s_tdm_dev *i2s_tdm,
         goto err;
     }
 
-    /* Skip clk_set_rate when mclk_calibrate or mclk_external is enabled */
-    if (!i2s_tdm->mclk_calibrate && !i2s_tdm->mclk_external) {
-        ret = clk_set_rate(i2s_tdm->mclk_tx, i2s_tdm->mclk_tx_freq);
-        if (ret)
-            goto err;
+    ret = clk_set_rate(i2s_tdm->mclk_tx, i2s_tdm->mclk_tx_freq);
+    if (ret)
+        goto err;
 
-        ret = clk_set_rate(i2s_tdm->mclk_rx, i2s_tdm->mclk_rx_freq);
-        if (ret)
-            goto err;
-    } else {
-        if (i2s_tdm->mclk_calibrate)
-            dev_info(i2s_tdm->dev, "Skipping clk_set_rate (mclk_calibrate active, TX_SRC=%lu Hz)\n",
-                     clk_get_rate(i2s_tdm->mclk_tx_src));
-        else
-            dev_info(i2s_tdm->dev, "Skipping clk_set_rate (mclk_external active, MCLK=%lu Hz)\n",
-                     clk_get_rate(i2s_tdm->mclk_tx));
-    }
+    ret = clk_set_rate(i2s_tdm->mclk_rx, i2s_tdm->mclk_rx_freq);
+    if (ret)
+        goto err;
 
     /* mclk_rx is also ok. */
     *mclk = i2s_tdm->mclk_tx;
@@ -1432,9 +1431,31 @@ static int rockchip_i2s_tdm_params_trcm(struct snd_pcm_substream *substream,
     unsigned long flags;
 
     spin_lock_irqsave(&i2s_tdm->lock, flags);
-    if (atomic_read(&i2s_tdm->refcount))
-    rockchip_i2s_tdm_trcm_pause(substream, i2s_tdm);
+    
+    if (atomic_read(&i2s_tdm->refcount)) {
+        if (i2s_tdm->mclk_external) {
+            dev_dbg(dai->dev, "TRCM: Skipping pause in EXT mode (refcount=%d)\n",
+                     atomic_read(&i2s_tdm->refcount));
+        } else {
+            rockchip_i2s_tdm_trcm_pause(substream, i2s_tdm);
+        }
+    }
 
+    /* Clear I2S_XFER completely to reset all bits before reconfiguration */
+    if (i2s_tdm->mclk_external && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+        regmap_write(i2s_tdm->regmap, I2S_XFER, 0);
+        udelay(10);
+        dev_info(dai->dev, "EXT TRCM: I2S_XFER cleared to reset stale DSD bits\n");
+    }
+
+    if (i2s_tdm->mclk_external) {
+        unsigned int clkdiv_before;
+        regmap_read(i2s_tdm->regmap, I2S_CLKDIV, &clkdiv_before);
+        dev_info(dai->dev, "BEFORE CLKDIV write: CLKDIV=0x%08X\n", clkdiv_before);
+        dev_info(dai->dev, "WRITE: div_bclk=%u → TXM=0x%X, RXM=0x%X\n", 
+                 div_bclk, I2S_CLKDIV_TXM(div_bclk), I2S_CLKDIV_RXM(div_bclk));
+    }
+    
     regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
            I2S_CLKDIV_TXM_MASK | I2S_CLKDIV_RXM_MASK,
            I2S_CLKDIV_TXM(div_bclk) | I2S_CLKDIV_RXM(div_bclk));
@@ -1443,16 +1464,37 @@ static int rockchip_i2s_tdm_params_trcm(struct snd_pcm_substream *substream,
            I2S_CKR_TSD(div_lrck) | I2S_CKR_RSD(div_lrck));
 
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-    regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
-       I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
-       fmt);
+        regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
+           I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
+           fmt);
     else
-    regmap_update_bits(i2s_tdm->regmap, I2S_RXCR,
-       I2S_RXCR_VDW_MASK | I2S_RXCR_CSR_MASK,
-       fmt);
-
-    if (atomic_read(&i2s_tdm->refcount))
-    rockchip_i2s_tdm_trcm_resume(substream, i2s_tdm);
+        regmap_update_bits(i2s_tdm->regmap, I2S_RXCR,
+           I2S_RXCR_VDW_MASK | I2S_RXCR_CSR_MASK,
+           fmt);
+    
+    if (i2s_tdm->mclk_external) {
+        unsigned int ckr_after, clkdiv_after, txcr_after;
+        regmap_read(i2s_tdm->regmap, I2S_CKR, &ckr_after);
+        regmap_read(i2s_tdm->regmap, I2S_CLKDIV, &clkdiv_after);
+        if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+            regmap_read(i2s_tdm->regmap, I2S_TXCR, &txcr_after);
+            dev_info(dai->dev, "AFTER TRCM: CKR=0x%08X, CLKDIV=0x%08X, TXCR=0x%08X\n", 
+                     ckr_after, clkdiv_after, txcr_after);
+        } else {
+            unsigned int rxcr_after;
+            regmap_read(i2s_tdm->regmap, I2S_RXCR, &rxcr_after);
+            dev_info(dai->dev, "AFTER TRCM: CKR=0x%08X, CLKDIV=0x%08X, RXCR=0x%08X\n", 
+                     ckr_after, clkdiv_after, rxcr_after);
+        }
+    }
+    if (atomic_read(&i2s_tdm->refcount)) {
+        if (i2s_tdm->mclk_external) {
+            dev_info(dai->dev, "TRCM: Skipping pause/resume in EXT mode (refcount=%d)\n",
+                     atomic_read(&i2s_tdm->refcount));
+        } else {
+            rockchip_i2s_tdm_trcm_resume(substream, i2s_tdm);
+        }
+    }
     spin_unlock_irqrestore(&i2s_tdm->lock, flags);
 
     return 0;
@@ -1467,8 +1509,13 @@ static int rockchip_i2s_tdm_params(struct snd_pcm_substream *substream,
     struct rk_i2s_tdm_dev *i2s_tdm = to_info(dai);
     int stream = substream->stream;
 
-    if (is_stream_active(i2s_tdm, stream))
-    rockchip_i2s_tdm_xfer_stop(i2s_tdm, stream, true);
+    if (is_stream_active(i2s_tdm, stream)) {
+        if (i2s_tdm->mclk_external) {
+            dev_dbg(i2s_tdm->dev, "I2S_PARAMS: Skipping xfer_stop in EXT mode\n");
+        } else {
+            rockchip_i2s_tdm_xfer_stop(i2s_tdm, stream, true);
+        }
+    }
 
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
     regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
@@ -1490,6 +1537,17 @@ static int rockchip_i2s_tdm_params(struct snd_pcm_substream *substream,
     regmap_update_bits(i2s_tdm->regmap, I2S_RXCR,
        I2S_RXCR_VDW_MASK | I2S_RXCR_CSR_MASK,
        fmt);
+    }
+
+    if (i2s_tdm->mclk_external && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+        regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+                           I2S_XFER_TXS_MASK,
+                           I2S_XFER_TXS_STOP);
+        udelay(2);
+        regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+                           I2S_XFER_TXS_MASK,
+                           I2S_XFER_TXS_START);
+        dev_info(i2s_tdm->dev, "EXT PARAMS: TX toggled to latch new dividers\n");
     }
 
     /*
@@ -1526,6 +1584,8 @@ static int rockchip_i2s_tdm_params_channels(struct snd_pcm_substream *substream,
         regmap_update_bits(i2s_tdm->regmap, reg_fmt, I2S_TXCR_CSR_MASK, I2S_CHN_4);
         return I2S_CHN_4; /* DSD requires 4 channels for stereo */
     }
+    
+    /* Use normal 2-channel configuration for stereo PCM */
     regmap_read(i2s_tdm->regmap, reg_fmt, &fmt);
     fmt &= I2S_TXCR_TFS_MASK;
 
@@ -1596,7 +1656,9 @@ if( i2s_tdm->mclk_external ){
             mclk = i2s_tdm->mclk_tx;
             if( i2s_tdm->mclk_ext_mux ) {
                 /* Consider MCLK multiplier for external PLL - match kernel 5.10 behavior */
-                if( params_rate(params) % 44100 ) {
+                bool is_48k_family = (params_rate(params) % 44100) != 0;
+                
+                if( is_48k_family ) {
                     clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_48);
                     /* 48kHz family: 24.576MHz (512x) or 49.152MHz (1024x) */
                     if (i2s_tdm->mclk_multiplier == 1024) {
@@ -1739,8 +1801,13 @@ if( i2s_tdm->mclk_external ){
         regmap_update_bits(i2s_tdm->regmap, I2S_CKR, mask, ckr_val);
     }
 
-    if (!is_params_dirty(substream, dai, div_bclk, div_lrck, val))
-        return 0;
+    /* Force register update in EXT mode, skip dirty check */
+    if (!i2s_tdm->mclk_external) {
+        if (!is_params_dirty(substream, dai, div_bclk, div_lrck, val))
+            return 0;
+    } else {
+        dev_info(i2s_tdm->dev, "EXT mode: Forcing register update (bypassing dirty check)\n");
+    }
 
     if (i2s_tdm->clk_trcm)
         rockchip_i2s_tdm_params_trcm(substream, dai, div_bclk, div_lrck, val);
@@ -2529,6 +2596,16 @@ static int rockchip_i2s_tdm_pcm_copy_user(struct snd_soc_component *component,
         /* PLAYBACK: copy from user and process */
         if (copy_from_user(dma_area, buf, bytes))
             return -EFAULT;
+        
+        /* CRITICAL: Ensure data is written to memory before DMA reads it */
+        wmb();
+        
+        /* DEBUG: Dump first samples to see data pattern */
+        if (copy_call_count < 3 && !i2s_tdm->dsd_mode_active && bytes >= 16) {
+            s32 *samples = (s32 *)dma_area;
+            dev_info(i2s_tdm->dev, "PCM DATA: [0]=0x%08X [1]=0x%08X [2]=0x%08X [3]=0x%08X\n",
+                     samples[0], samples[1], samples[2], samples[3]);
+        }
         
         /* DSD MUTE: Replace data with silence signal (50% duty cycle) */
         if ((i2s_tdm->mute || i2s_tdm->auto_mute_active) && i2s_tdm->dsd_mode_active &&
@@ -3680,10 +3757,9 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
         }
     }
 
-    regmap_update_bits(i2s_tdm->regmap, I2S_DMACR, I2S_DMACR_TDL_MASK,
-           I2S_DMACR_TDL(16));
-    regmap_update_bits(i2s_tdm->regmap, I2S_DMACR, I2S_DMACR_RDL_MASK,
-           I2S_DMACR_RDL(16));
+    regmap_write(i2s_tdm->regmap, I2S_DMACR, 
+                 I2S_DMACR_TDL(16) | I2S_DMACR_RDL(16));
+    dev_info(&pdev->dev, "DMA thresholds: TDL=16, RDL=16\n");
     regmap_update_bits(i2s_tdm->regmap, I2S_CKR,
            I2S_CKR_TRCM_MASK, i2s_tdm->clk_trcm);
 

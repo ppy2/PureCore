@@ -56,7 +56,7 @@ i2s0_8ch: i2s@ffae0000 {
     	assigned-clocks = <&cru CLK_I2S0_8CH_TX>, <&cru CLK_I2S0_8CH_RX>;
     	assigned-clock-parents = <&i2s0_mclkin>, <&i2s0_mclkin>;
     	assigned-clock-rates = <0>, <0>;
-    	my,mclk_external;
+    	my,mclk_external = <1>;
 
     	dmas = <&dmac 22>, <&dmac 21>;
     	dma-names = "tx", "rx";
