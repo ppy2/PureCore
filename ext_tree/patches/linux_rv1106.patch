@@ -83,6 +83,485 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-i
  
  	/* Bypass Squelch detector calibration */
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
+diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-14 11:19:36.178514186 +0300
+@@ -29,10 +29,10 @@
+  *  controlled by two clock sources :
+  *    CLK_5 := c_srate, and CLK_6 := p_srate
+  */
+-#define USB_OUT_CLK_ID	(out_clk_src_desc.bClockID)
+-#define USB_IN_CLK_ID	(in_clk_src_desc.bClockID)
+-#define USB_OUT_FU_ID	(out_feature_unit_desc->bUnitID)
+-#define USB_IN_FU_ID	(in_feature_unit_desc->bUnitID)
++#define USB_OUT_CLK_ID	41  /* XingCore Clock Source ID */
++#define USB_IN_CLK_ID	(in_clk_src_desc.bClockID)  /* Dynamic for capture */
++#define USB_OUT_FU_ID	10  /* XingCore Feature Unit ID */
++#define USB_IN_FU_ID	(in_feature_unit_desc->bUnitID)  /* Dynamic for capture */
+ 
+ #define CONTROL_ABSENT	0
+ #define CONTROL_RDONLY	1
+@@ -149,10 +149,10 @@
+ 	.bDescriptorType = USB_DT_INTERFACE_ASSOCIATION,
+ 
+ 	.bFirstInterface = 0,
+-	.bInterfaceCount = 3,
++	.bInterfaceCount = 2,  /* XingCore has 2 interfaces (Control + Streaming) */
+ 	.bFunctionClass = USB_CLASS_AUDIO,
+-	.bFunctionSubClass = UAC2_FUNCTION_SUBCLASS_UNDEFINED,
+-	.bFunctionProtocol = UAC_VERSION_2,
++	.bFunctionSubClass = 0,  /* XingCore uses 0x00 */
++	.bFunctionProtocol = UAC_VERSION_2,  /* 0x20 for UAC2 */
+ };
+ 
+ /* Audio Control Interface */
+@@ -179,72 +179,96 @@
+ 	.bAssocTerminal = 0,
+ };
+ 
+-/* Clock source for OUT traffic */
++/* Clock source for OUT traffic - XingCore compatible */
+ static struct uac_clock_source_descriptor out_clk_src_desc = {
+ 	.bLength = sizeof out_clk_src_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+ 
+ 	.bDescriptorSubtype = UAC2_CLOCK_SOURCE,
+ 	/* .bClockID = DYNAMIC */
+-	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_FIXED,
+-	.bmControls = (CONTROL_RDWR << CLK_FREQ_CTRL),
++	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_PROG,  /* 0x03 - Internal programmable */
++	.bmControls = 0x07,  /* XingCore: Clock Frequency + Clock Validity controls */
+ 	.bAssocTerminal = 0,
+ };
+ 
+-/* Input Terminal for USB_OUT */
++/* Clock Selector for XingCore compatibility */
++/* XingCore: Clock Selector with 1-byte bmControls */
++struct uac2_clock_selector_descriptor {
++	__u8 bLength;
++	__u8 bDescriptorType;
++	__u8 bDescriptorSubtype;
++	__u8 bClockID;
++	__u8 bNrInPins;
++	__u8 baCSourceID[1];
++	__u8 bmControls[1];  /* XingCore uses 1 byte, not 2 */
++	__u8 iClockSelector;
++} __attribute__((packed));
++
++static struct uac2_clock_selector_descriptor out_clk_sel_desc = {
++	.bLength = 8,  /* XingCore: Fixed size 8 bytes (not sizeof) */
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++	.bDescriptorSubtype = UAC2_CLOCK_SELECTOR,
++	/* .bClockID = DYNAMIC */
++	.bNrInPins = 1,
++	.baCSourceID = {0}, /* Will be linked to clock source */
++	.bmControls = {0x03}, /* XingCore: Only 1 byte for bmControls */
++	.iClockSelector = 0,
++};
++
++/* Input Terminal for USB_OUT - FOR PLAYBACK: from USB Host */
+ static struct uac2_input_terminal_descriptor usb_out_it_desc = {
+ 	.bLength = sizeof usb_out_it_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+ 
+ 	.bDescriptorSubtype = UAC_INPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),
++	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),  /* 0x0101 USB Streaming */
+ 	.bAssocTerminal = 0,
+ 	/* .bCSourceID = DYNAMIC */
+ 	.iChannelNames = 0,
+-	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
++	.bmControls = 0,  /* XingCore: No controls in IT */
+ };
+ 
+-/* Input Terminal for I/O-In */
++/* Input Terminal for I/O-In - FOR PLAYBACK when EPIN_EN: from USB (swapped logic!) */
+ static struct uac2_input_terminal_descriptor io_in_it_desc = {
+ 	.bLength = sizeof io_in_it_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+ 
+ 	.bDescriptorSubtype = UAC_INPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_INPUT_TERMINAL_MICROPHONE),
++	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),  /* 0x0101 USB Streaming - for PLAYBACK */
+ 	.bAssocTerminal = 0,
+ 	/* .bCSourceID = DYNAMIC */
+ 	.iChannelNames = 0,
+ 	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
+ };
+ 
+-/* Ouput Terminal for USB_IN */
++/* Output Terminal for USB_IN - FOR PLAYBACK when EPIN_EN: to Speaker (swapped logic!) */
+ static struct uac2_output_terminal_descriptor usb_in_ot_desc = {
+ 	.bLength = sizeof usb_in_ot_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+ 
+ 	.bDescriptorSubtype = UAC_OUTPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),
++	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),  /* 0x0301 Speaker - for PLAYBACK */
+ 	.bAssocTerminal = 0,
+ 	/* .bSourceID = DYNAMIC */
+ 	/* .bCSourceID = DYNAMIC */
+-	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
++	.bmControls = 0,
+ };
+ 
+-/* Ouput Terminal for I/O-Out */
++/* Output Terminal for I/O-Out - FOR PLAYBACK: to Speaker (0x0301) */
+ static struct uac2_output_terminal_descriptor io_out_ot_desc = {
+ 	.bLength = sizeof io_out_ot_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+ 
+ 	.bDescriptorSubtype = UAC_OUTPUT_TERMINAL,
+ 	/* .bTerminalID = DYNAMIC */
+-	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),
++	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),  /* 0x0301 Speaker */
+ 	.bAssocTerminal = 0,
+ 	/* .bSourceID = DYNAMIC */
+ 	/* .bCSourceID = DYNAMIC */
+-	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
++	.bmControls = 0,  /* XingCore uses 0x0000 for bmControls */
+ };
+ 
+ static struct uac2_feature_unit_descriptor *in_feature_unit_desc;
+@@ -256,7 +280,7 @@
+ 
+ 	.bDescriptorSubtype = UAC_MS_HEADER,
+ 	.bcdADC = cpu_to_le16(0x200),
+-	.bCategory = UAC2_FUNCTION_IO_BOX,
++	.bCategory = 1,  /* XingCore uses bCategory = 1 */
+ 	/* .wTotalLength = DYNAMIC */
+ 	.bmControls = 0,
+ };
+@@ -321,6 +345,18 @@
+ 	.bInterfaceProtocol = UAC_VERSION_2,
+ };
+ 
++/* Audio Streaming OUT Interface - Alt2 (XingCore RAW_DATA format) */
++static struct usb_interface_descriptor std_as_out_if2_desc = {
++	.bLength = sizeof std_as_out_if2_desc,
++	.bDescriptorType = USB_DT_INTERFACE,
++
++	.bAlternateSetting = 2,
++	.bNumEndpoints = 1,
++	.bInterfaceClass = USB_CLASS_AUDIO,
++	.bInterfaceSubClass = USB_SUBCLASS_AUDIOSTREAMING,
++	.bInterfaceProtocol = UAC_VERSION_2,
++};
++
+ /* Audio Stream OUT Intface Desc */
+ static struct uac2_as_header_descriptor as_out_hdr_desc = {
+ 	.bLength = sizeof as_out_hdr_desc,
+@@ -334,7 +370,20 @@
+ 	.iChannelNames = 0,
+ };
+ 
+-/* Audio USB_OUT Format */
++/* Audio Stream OUT Alt2 Desc (RAW_DATA) */
++static struct uac2_as_header_descriptor as_out_hdr2_desc = {
++	.bLength = sizeof as_out_hdr2_desc,
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++
++	.bDescriptorSubtype = UAC_AS_GENERAL,
++	/* .bTerminalLink = DYNAMIC */
++	.bmControls = 0,
++	.bFormatType = UAC_FORMAT_TYPE_I,
++	.bmFormats = cpu_to_le32(0x80000000),  /* TYPE_I_RAW_DATA */
++	.iChannelNames = 0,
++};
++
++/* Audio USB_OUT Format Alt1 */
+ static struct uac2_format_type_i_descriptor as_out_fmt1_desc = {
+ 	.bLength = sizeof as_out_fmt1_desc,
+ 	.bDescriptorType = USB_DT_CS_INTERFACE,
+@@ -342,6 +391,14 @@
+ 	.bFormatType = UAC_FORMAT_TYPE_I,
+ };
+ 
++/* Audio USB_OUT Format Alt2 (RAW_DATA) */
++static struct uac2_format_type_i_descriptor as_out_fmt2_desc = {
++	.bLength = sizeof as_out_fmt2_desc,
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++	.bDescriptorSubtype = UAC_FORMAT_TYPE,
++	.bFormatType = UAC_FORMAT_TYPE_I,
++};
++
+ /* STD AS ISO OUT Endpoint */
+ static struct usb_endpoint_descriptor fs_epout_desc = {
+ 	.bLength = USB_DT_ENDPOINT_SIZE,
+@@ -533,6 +590,7 @@
+ 	(struct usb_descriptor_header *)&ac_hdr_desc,
+ 	(struct usb_descriptor_header *)&in_clk_src_desc,
+ 	(struct usb_descriptor_header *)&out_clk_src_desc,
++	(struct usb_descriptor_header *)&out_clk_sel_desc,
+ 	(struct usb_descriptor_header *)&usb_out_it_desc,
+ 	(struct usb_descriptor_header *)&out_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_in_it_desc,
+@@ -540,8 +598,6 @@
+ 	(struct usb_descriptor_header *)&in_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_out_ot_desc,
+ 
+-	(struct usb_descriptor_header *)&fs_ep_int_desc,
+-
+ 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
+ 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
+ 
+@@ -568,6 +624,7 @@
+ 	(struct usb_descriptor_header *)&ac_hdr_desc,
+ 	(struct usb_descriptor_header *)&in_clk_src_desc,
+ 	(struct usb_descriptor_header *)&out_clk_src_desc,
++	(struct usb_descriptor_header *)&out_clk_sel_desc,
+ 	(struct usb_descriptor_header *)&usb_out_it_desc,
+ 	(struct usb_descriptor_header *)&out_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_in_it_desc,
+@@ -575,8 +632,6 @@
+ 	(struct usb_descriptor_header *)&in_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_out_ot_desc,
+ 
+-	(struct usb_descriptor_header *)&hs_ep_int_desc,
+-
+ 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
+ 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
+ 
+@@ -603,6 +658,7 @@
+ 	(struct usb_descriptor_header *)&ac_hdr_desc,
+ 	(struct usb_descriptor_header *)&in_clk_src_desc,
+ 	(struct usb_descriptor_header *)&out_clk_src_desc,
++	(struct usb_descriptor_header *)&out_clk_sel_desc,
+ 	(struct usb_descriptor_header *)&usb_out_it_desc,
+   (struct usb_descriptor_header *)&out_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_in_it_desc,
+@@ -610,9 +666,6 @@
+ 	(struct usb_descriptor_header *)&in_feature_unit_desc,
+ 	(struct usb_descriptor_header *)&io_out_ot_desc,
+ 
+-	(struct usb_descriptor_header *)&ss_ep_int_desc,
+-	(struct usb_descriptor_header *)&ss_ep_int_desc_comp,
+-
+ 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
+ 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
+ 
+@@ -846,6 +899,7 @@
+ 		headers[i++] = USBDHDR(&in_clk_src_desc);
+ 	if (EPOUT_EN(opts)) {
+ 		headers[i++] = USBDHDR(&out_clk_src_desc);
++		headers[i++] = USBDHDR(&out_clk_sel_desc);
+ 		headers[i++] = USBDHDR(&usb_out_it_desc);
+ 
+ 		if (FUOUT_EN(opts))
+@@ -864,11 +918,7 @@
+ 	if (EPOUT_EN(opts))
+ 		headers[i++] = USBDHDR(&io_out_ot_desc);
+ 
+-	if (FUOUT_EN(opts) || FUIN_EN(opts)) {
+-		headers[i++] = USBDHDR(ep_int_desc);
+-		if (ep_int_desc_comp)
+-			headers[i++] = USBDHDR(ep_int_desc_comp);
+-	}
++	/* XingCore: No interrupt endpoint in Audio Control Interface */
+ 
+ 	if (EPOUT_EN(opts)) {
+ 		headers[i++] = USBDHDR(&std_as_out_if0_desc);
+@@ -886,6 +936,22 @@
+ 			if (epin_fback_desc_comp)
+ 				headers[i++] = USBDHDR(epin_fback_desc_comp);
+ 		}
++
++		/* XingCore Alt Setting 2 (RAW_DATA format) */
++		headers[i++] = USBDHDR(&std_as_out_if2_desc);
++		headers[i++] = USBDHDR(&as_out_hdr2_desc);
++		headers[i++] = USBDHDR(&as_out_fmt2_desc);
++		headers[i++] = USBDHDR(epout_desc);
++		if (epout_desc_comp)
++			headers[i++] = USBDHDR(epout_desc_comp);
++
++		headers[i++] = USBDHDR(&as_iso_out_desc);
++
++		if (EPOUT_FBACK_IN_EN(opts)) {
++			headers[i++] = USBDHDR(epin_fback_desc);
++			if (epin_fback_desc_comp)
++				headers[i++] = USBDHDR(epin_fback_desc_comp);
++		}
+ 	}
+ 
+ 	if (EPIN_EN(opts)) {
+@@ -904,27 +970,31 @@
+ 
+ static void setup_descriptor(struct f_uac2_opts *opts)
+ {
+-	/* patch descriptors */
+-	int i = 1; /* ID's start with 1 */
++	/* XINGCORE STRUCTURE: single terminal chain for both playback and capture */
++	if (EPOUT_EN(opts)) {
++		/* XingCore Clock entities */
++		out_clk_src_desc.bClockID = 41;    /* Clock Source ID */
++		out_clk_sel_desc.bClockID = 40;    /* Clock Selector ID */
+ 
++		/* XingCore Terminal chain: 42 → 10 → 43 */
++		usb_out_it_desc.bTerminalID = 42;  /* Input Terminal ID */
++		out_feature_unit_desc->bUnitID = 10;  /* Feature Unit ID */
++		io_out_ot_desc.bTerminalID = 43;    /* Output Terminal ID */
++	}
++
++	/* Playback uses SAME terminals - XingCore has one chain */
++	if (EPIN_EN(opts)) {
++		io_in_it_desc.bTerminalID = 42;     /* Same Input Terminal */
++		in_feature_unit_desc->bUnitID = 10;  /* Same Feature Unit */
++		usb_in_ot_desc.bTerminalID = 43;    /* Same Output Terminal */
++		in_clk_src_desc.bClockID = 41;      /* Same Clock Source */
++	}
++
++	/* Link Clock Selector to Clock Source */
+ 	if (EPOUT_EN(opts))
+-		usb_out_it_desc.bTerminalID = i++;
+-	if (EPIN_EN(opts))
+-		io_in_it_desc.bTerminalID = i++;
+-	if (EPOUT_EN(opts))
+-		io_out_ot_desc.bTerminalID = i++;
+-	if (EPIN_EN(opts))
+-		usb_in_ot_desc.bTerminalID = i++;
+-	if (FUOUT_EN(opts))
+-		out_feature_unit_desc->bUnitID = i++;
+-	if (FUIN_EN(opts))
+-		in_feature_unit_desc->bUnitID = i++;
+-	if (EPOUT_EN(opts))
+-		out_clk_src_desc.bClockID = i++;
+-	if (EPIN_EN(opts))
+-		in_clk_src_desc.bClockID = i++;
++		out_clk_sel_desc.baCSourceID[0] = out_clk_src_desc.bClockID;
+ 
+-	usb_out_it_desc.bCSourceID = out_clk_src_desc.bClockID;
++	usb_out_it_desc.bCSourceID = out_clk_sel_desc.bClockID;  /* Link to Clock Selector */
+ 
+ 	if (FUIN_EN(opts)) {
+ 		usb_in_ot_desc.bSourceID = in_feature_unit_desc->bUnitID;
+@@ -935,7 +1005,7 @@
+ 
+ 	usb_in_ot_desc.bCSourceID = in_clk_src_desc.bClockID;
+ 	io_in_it_desc.bCSourceID = in_clk_src_desc.bClockID;
+-	io_out_ot_desc.bCSourceID = out_clk_src_desc.bClockID;
++	io_out_ot_desc.bCSourceID = out_clk_sel_desc.bClockID;  /* Link to Clock Selector */
+ 
+ 	if (FUOUT_EN(opts)) {
+ 		io_out_ot_desc.bSourceID = out_feature_unit_desc->bUnitID;
+@@ -945,9 +1015,10 @@
+ 	}
+ 
+ 	as_out_hdr_desc.bTerminalLink = usb_out_it_desc.bTerminalID;
++	as_out_hdr2_desc.bTerminalLink = usb_out_it_desc.bTerminalID;  /* Alt2 uses same terminal */
+ 	as_in_hdr_desc.bTerminalLink = usb_in_ot_desc.bTerminalID;
+ 
+-	iad_desc.bInterfaceCount = 1;
++	/* iad_desc.bInterfaceCount = 2; - Already set to 2 for XingCore */
+ 	ac_hdr_desc.wTotalLength = cpu_to_le16(sizeof(ac_hdr_desc));
+ 
+ 	if (EPIN_EN(opts)) {
+@@ -961,12 +1032,13 @@
+ 
+ 		len += sizeof(io_in_it_desc);
+ 		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
+-		iad_desc.bInterfaceCount++;
++		/* iad_desc.bInterfaceCount stays at 2 for XingCore */
+ 	}
+ 	if (EPOUT_EN(opts)) {
+ 		u16 len = le16_to_cpu(ac_hdr_desc.wTotalLength);
+ 
+ 		len += sizeof(out_clk_src_desc);
++		len += sizeof(out_clk_sel_desc);
+ 		len += sizeof(usb_out_it_desc);
+ 
+ 		if (FUOUT_EN(opts))
+@@ -974,7 +1046,7 @@
+ 
+ 		len += sizeof(io_out_ot_desc);
+ 		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
+-		iad_desc.bInterfaceCount++;
++		/* iad_desc.bInterfaceCount stays at 2 for XingCore */
+ 	}
+ 
+ 	setup_headers(opts, fs_audio_desc, USB_SPEED_FULL);
+@@ -1091,26 +1163,39 @@
+ 
+ 	/* Initialize the configurable parameters */
+ 	usb_out_it_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
+-	usb_out_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
++	usb_out_it_desc.bmChannelConfig = 0;  /* XingCore uses 0x00000000 for IT */
+ 	io_in_it_desc.bNrChannels = num_channels(uac2_opts->p_chmask);
+ 	io_in_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
+ 	as_out_hdr_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
+ 	as_out_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
++	as_out_hdr2_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
++	as_out_hdr2_desc.bmChannelConfig = 0;  /* XingCore Alt2 uses 0x00000000 */
+ 	as_in_hdr_desc.bNrChannels = num_channels(uac2_opts->p_chmask);
+ 	as_in_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
+ 	as_out_fmt1_desc.bSubslotSize = uac2_opts->c_ssize;
+ 	as_out_fmt1_desc.bBitResolution = uac2_opts->c_ssize * 8;
++	as_out_fmt2_desc.bSubslotSize = uac2_opts->c_ssize;
++	as_out_fmt2_desc.bBitResolution = uac2_opts->c_ssize * 8;
+ 	as_in_fmt1_desc.bSubslotSize = uac2_opts->p_ssize;
+ 	as_in_fmt1_desc.bBitResolution = uac2_opts->p_ssize * 8;
+ 	if (FUOUT_EN(uac2_opts)) {
+ 		__le32 *bma = (__le32 *)&out_feature_unit_desc->bmaControls[0];
+ 		u32 control = 0;
++		int channels = num_channels(uac2_opts->c_chmask);
++		int i;
+ 
++		/* Master controls (bmaControls[0]) */
+ 		if (uac2_opts->c_mute_present)
+ 			control |= CONTROL_RDWR << FU_MUTE_CTRL;
+-		if (uac2_opts->c_volume_present)
+-			control |= CONTROL_RDWR << FU_VOL_CTRL;
+-		*bma = cpu_to_le32(control);
++		/* XingCore: Master has NO volume, only per-channel */
++		*bma++ = cpu_to_le32(control);
++
++		/* Per-channel volume controls (bmaControls[1], bmaControls[2], ...) */
++		if (uac2_opts->c_volume_present) {
++			control = CONTROL_RDWR << FU_VOL_CTRL;
++			for (i = 0; i < channels; i++)
++				*bma++ = cpu_to_le32(control);
++		}
+ 	}
+ 	if (FUIN_EN(uac2_opts)) {
+ 		__le32 *bma = (__le32 *)&in_feature_unit_desc->bmaControls[0];
+@@ -1142,7 +1227,9 @@
+ 		}
+ 		std_as_out_if0_desc.bInterfaceNumber = ret;
+ 		std_as_out_if1_desc.bInterfaceNumber = ret;
++		std_as_out_if2_desc.bInterfaceNumber = ret;  /* Alt2 same interface */
+ 		std_as_out_if1_desc.bNumEndpoints = 1;
++		std_as_out_if2_desc.bNumEndpoints = 1;  /* Alt2 has 1 endpoint */
+ 		uac2->as_out_intf = ret;
+ 		uac2->as_out_alt = 0;
+ 
+@@ -1154,6 +1241,7 @@
+ 			ss_epout_desc.bmAttributes =
+ 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC;
+ 			std_as_out_if1_desc.bNumEndpoints++;
++			std_as_out_if2_desc.bNumEndpoints++;  /* Alt2 also gets feedback */
+ 		} else {
+ 			fs_epout_desc.bmAttributes =
+ 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE;
+@@ -1176,16 +1264,7 @@
+ 		uac2->as_in_alt = 0;
+ 	}
+ 
+-	if (FUOUT_EN(uac2_opts) || FUIN_EN(uac2_opts)) {
+-		uac2->int_ep = usb_ep_autoconfig(gadget, &fs_ep_int_desc);
+-		if (!uac2->int_ep) {
+-			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+-			ret = -ENODEV;
+-			goto err_free_fu;
+-		}
+-
+-		std_ac_if_desc.bNumEndpoints = 1;
+-	}
++	/* XingCore: No interrupt endpoint in Audio Control Interface */
+ 
+ 	hs_epin_desc.bInterval = uac2_opts->p_hs_bint;
+ 	ss_epin_desc.bInterval = uac2_opts->p_hs_bint;
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile
 --- linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile	2025-11-07 17:11:17.088713026 +0300
@@ -289,7 +768,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linu
  };
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-11 15:34:13.884353274 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-13 17:03:45.820670745 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver

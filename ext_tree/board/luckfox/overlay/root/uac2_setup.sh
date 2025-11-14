@@ -1,57 +1,58 @@
 #!/bin/sh
 
-# USB UAC2 Audio Gadget Setup Script
-# Automatically configures rv1106 as USB Audio Class 2.0 device
-# Supports PCM 44.1-384kHz, 16-32bit
+# XingCore-compatible UAC2 Audio Gadget
+# Based on sniffed USB descriptors from 152a:8852
 
 CONFIGFS="/sys/kernel/config"
 GADGET="$CONFIGFS/usb_gadget/g1"
 
-# Load configfs module
 modprobe libcomposite
 
-# Create gadget
 mkdir -p "$GADGET"
 cd "$GADGET"
 
-# USB Device Descriptor
-echo 0x1d6b > idVendor  # Linux Foundation
-echo 0x0104 > idProduct # Multifunction Composite Gadget
-echo 0x0100 > bcdDevice # v1.0.0
-echo 0x0200 > bcdUSB    # USB 2.0
+# Device Descriptor (XingCore clone)
+echo 0x152a > idVendor
+echo 0x8852 > idProduct
+echo 0x0312 > bcdDevice
+echo 0x0200 > bcdUSB
+echo 0xEF > bDeviceClass
+echo 0x02 > bDeviceSubClass
+echo 0x01 > bDeviceProtocol
+echo 64 > bMaxPacketSize0
 
 # Device Strings
 mkdir -p strings/0x409
-echo "PureFox" > strings/0x409/manufacturer
-echo "USB Audio Interface" > strings/0x409/product
-echo "UAC2-001" > strings/0x409/serialnumber
+echo "XingCore" > strings/0x409/manufacturer
+echo "XingCore USB Hi-Resolution Audio" > strings/0x409/product
+echo "" > strings/0x409/serialnumber
 
-# UAC2 Function Configuration
+# UAC2 Function
 mkdir -p functions/uac2.0
 
-# Playback (USB Host -> rv1106 -> I2S DAC)
-echo 2 > functions/uac2.0/p_chmask         # Stereo
-echo 384000 > functions/uac2.0/p_srate     # Max 384kHz
-echo 4 > functions/uac2.0/p_ssize          # 32-bit samples
+# Playback ONLY (XingCore has no capture)
+echo 3 > functions/uac2.0/p_chmask
+echo "44100,48000,88200,96000,176400,192000" > functions/uac2.0/p_srate
+echo 4 > functions/uac2.0/p_ssize
+echo 1 > functions/uac2.0/p_mute_present
+echo 1 > functions/uac2.0/p_volume_present
 
-# Capture (disabled for now, can enable for ADC input)
-echo 0 > functions/uac2.0/c_chmask         # Disabled
+# No capture
+echo 0 > functions/uac2.0/c_chmask
 
-# ALSA device control
-echo "UAC2 PCM" > functions/uac2.0/function_name
+echo "XingCore USB Audio" > functions/uac2.0/function_name
 
-# Create configuration
+# Configuration (self-powered, 100mA like XingCore)
 mkdir -p configs/c.1
 mkdir -p configs/c.1/strings/0x409
-echo "UAC2 Audio" > configs/c.1/strings/0x409/configuration
-echo 500 > configs/c.1/MaxPower
+echo "Audio" > configs/c.1/strings/0x409/configuration
+echo 100 > configs/c.1/MaxPower
+echo 0xC0 > configs/c.1/bmAttributes
 
-# Link function to configuration
 ln -s functions/uac2.0 configs/c.1/
 
-# Enable gadget by binding to UDC
+# Bind to UDC
 UDC_DEV=$(ls /sys/class/udc | head -1)
 echo "$UDC_DEV" > UDC
 
-echo "UAC2 Gadget configured on $UDC_DEV"
-echo "ALSA device: UAC2 PCM (check with 'aplay -l')"
+echo "XingCore clone UAC2 configured on $UDC_DEV"

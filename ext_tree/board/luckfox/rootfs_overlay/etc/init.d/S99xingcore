@@ -1,0 +1,91 @@
+#!/bin/sh
+
+# XingCore UAC2 Gadget Auto-start Script
+# Запускается последним в автозагрузке
+
+start() {
+    echo "Starting XingCore UAC2 gadget..."
+    sleep 2  # Даем время на инициализацию USB
+
+    # Проверяем доступен ли UDC
+    if [ ! -d /sys/class/udc ]; then
+        echo "UDC not available, skipping XingCore gadget"
+        return 1
+    fi
+
+    # Создаем XingCore гаджет
+    cd /sys/kernel/config/usb_gadget
+
+    # Удаляем старые гаджеты
+    for gadget in *; do
+        if [ -d "$gadget" ] && [ "$gadget" != "." ] && [ "$gadget" != ".." ]; then
+            echo "" > "$gadget/UDC" 2>/dev/null
+        fi
+    done
+
+    mkdir -p xingcore
+    cd xingcore
+
+    # Device Descriptor (XingCore clone)
+    echo 0x152a > idVendor
+    echo 0x8852 > idProduct
+    echo 0x0312 > bcdDevice
+    echo 0x0200 > bcdUSB
+    echo 0xEF > bDeviceClass
+    echo 0x02 > bDeviceSubClass
+    echo 0x01 > bDeviceProtocol
+    echo 64 > bMaxPacketSize0
+
+    # Device Strings
+    mkdir -p strings/0x409
+    echo "XingCore" > strings/0x409/manufacturer
+    echo "XingCore USB Hi-Resolution Audio" > strings/0x409/product
+    echo "" > strings/0x409/serialnumber
+
+    # UAC2 Function
+    mkdir -p functions/uac2.0
+
+    # WORKAROUND: Due to kernel driver confusion between EPIN/EPOUT paths
+    # We use c_chmask for playback (creates EPOUT with correct Speaker terminal)
+    # instead of p_chmask (creates EPIN with wrong Microphone terminal)
+    
+    # "Capture" settings (actually used for playback due to kernel bug)
+    echo 3 > functions/uac2.0/c_chmask
+    echo "44100,48000,88200,96000,176400,192000" > functions/uac2.0/c_srate
+    echo 4 > functions/uac2.0/c_ssize
+    echo 1 > functions/uac2.0/c_mute_present
+    echo 1 > functions/uac2.0/c_volume_present
+
+    # No playback (we use capture path for playback)
+    echo 0 > functions/uac2.0/p_chmask
+    echo "XingCore USB Audio" > functions/uac2.0/function_name
+
+    # Configuration
+    mkdir -p configs/c.1/strings/0x409
+    echo "Config 1: XingCore Audio" > configs/c.1/strings/0x409/configuration
+    echo 500 > configs/c.1/MaxPower
+    ln -s functions/uac2.0 configs/c.1/
+
+    # Enable gadget
+    ls /sys/class/udc > UDC
+
+    echo "XingCore UAC2 gadget started automatically"
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    echo "Stopping XingCore gadget..."
+    cd /sys/kernel/config/usb_gadget/xingcore 2>/dev/null && echo "" > UDC 2>/dev/null
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
