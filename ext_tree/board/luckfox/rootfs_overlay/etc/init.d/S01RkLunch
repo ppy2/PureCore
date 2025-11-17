@@ -34,7 +34,7 @@ echo 1 > /sys/devices/platform/ffae0000.i2s/mute
 
 /sbin/ifconfig eth0 down
 /sbin/ifconfig eth0 hw ether $MAC
-/sbin/ifconfig eth0 up && /sbin/udhcpc -i eth0
+#/sbin/ifconfig eth0 up && /sbin/udhcpc -i eth0
 
 grep MCLK=1024 /etc/i2s.conf && echo 1024 > /sys/devices/platform/ffae0000.i2s/mclk_multiplier
 echo 300 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 

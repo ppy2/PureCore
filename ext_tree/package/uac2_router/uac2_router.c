@@ -22,8 +22,15 @@
 #define SYSFS_CHANNELS_FILE "channels"
 
 /* Фиксированный формат для I2S (как в оригинальном XingCore) */
-#define I2S_FORMAT SND_PCM_FORMAT_S32_LE  /* Всегда 32-бит */
+#define I2S_FORMAT_PCM SND_PCM_FORMAT_S32_LE  /* PCM: 32-бит */
+#define I2S_FORMAT_DSD SND_PCM_FORMAT_DSD_U32_LE  /* DSD: 32-бит DSD */
 #define I2S_CHANNELS 2                     /* Всегда стерео */
+
+/* DSD sample rates (native DSD64/128/256/512) */
+#define DSD64_RATE   2822400
+#define DSD128_RATE  5644800
+#define DSD256_RATE  11289600
+#define DSD512_RATE  22579200
 
 /* Размер буфера для netlink uevent */
 #define UEVENT_BUFFER_SIZE 4096
@@ -36,6 +43,23 @@ static char uac_card_name[64] = "";
 
 static void sighandler(int sig) {
     running = 0;
+}
+
+/* Определить, является ли частота DSD */
+static int is_dsd_rate(unsigned int rate) {
+    return (rate == DSD64_RATE || rate == DSD128_RATE ||
+            rate == DSD256_RATE || rate == DSD512_RATE);
+}
+
+/* Получить название DSD формата по частоте */
+static const char* get_dsd_name(unsigned int rate) {
+    switch (rate) {
+        case DSD64_RATE:  return "DSD64";
+        case DSD128_RATE: return "DSD128";
+        case DSD256_RATE: return "DSD256";
+        case DSD512_RATE: return "DSD512";
+        default: return "Unknown";
+    }
 }
 
 /* Найти UAC карту в /sys/class/u_audio/ */
@@ -173,22 +197,32 @@ static void close_pcms(void) {
 static int configure_audio(unsigned int rate, char **buffer, size_t *buffer_size,
                           snd_pcm_uframes_t *period_size_out) {
     snd_pcm_uframes_t capture_period_size, playback_period_size;
+    int is_dsd = is_dsd_rate(rate);
+    snd_pcm_format_t i2s_format = is_dsd ? I2S_FORMAT_DSD : I2S_FORMAT_PCM;
 
-    printf("\n[CONFIG] Setting up audio: %u Hz, 32-bit, Stereo\n", rate);
+    if (is_dsd) {
+        printf("\n[CONFIG] ═══ DSD MODE: %s (%u Hz) ═══\n", get_dsd_name(rate), rate);
+    } else {
+        printf("\n[CONFIG] Setting up PCM audio: %u Hz, 32-bit, Stereo\n", rate);
+    }
 
     close_pcms();
 
-    /* UAC2 capture */
+    /* UAC2 capture - всегда PCM S32_LE (USB передает DSD как "raw" 32-bit data) */
     if (setup_pcm(&pcm_capture, UAC2_CARD, SND_PCM_STREAM_CAPTURE,
-                  rate, I2S_FORMAT, I2S_CHANNELS) < 0) {
+                  rate, I2S_FORMAT_PCM, I2S_CHANNELS) < 0) {
         return -1;
     }
 
-    /* I2S playback - всегда 32-бит стерео (как XingCore) */
+    /* I2S playback - PCM или DSD формат в зависимости от частоты */
     if (setup_pcm(&pcm_playback, I2S_CARD, SND_PCM_STREAM_PLAYBACK,
-                  rate, I2S_FORMAT, I2S_CHANNELS) < 0) {
+                  rate, i2s_format, I2S_CHANNELS) < 0) {
         close_pcms();
         return -1;
+    }
+
+    if (is_dsd) {
+        printf("[CONFIG] DSD stream configured: USB→I2S routing active\n");
     }
 
     /* Получить период размеры для обоих устройств */
@@ -207,7 +241,8 @@ static int configure_audio(unsigned int rate, char **buffer, size_t *buffer_size
     /* Выделить буфер размером с больший период (для накопления данных) */
     snd_pcm_uframes_t max_period = (capture_period_size > playback_period_size) ?
                                     capture_period_size : playback_period_size;
-    size_t frame_bytes = snd_pcm_format_physical_width(I2S_FORMAT) / 8 * I2S_CHANNELS;
+    /* Используем PCM формат для расчета буфера (DSD и PCM оба 32-бит) */
+    size_t frame_bytes = snd_pcm_format_physical_width(I2S_FORMAT_PCM) / 8 * I2S_CHANNELS;
     *buffer_size = max_period * frame_bytes;
     *buffer = realloc(*buffer, *buffer_size);
 
