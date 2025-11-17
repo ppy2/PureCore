@@ -40,6 +40,8 @@ static snd_pcm_t *pcm_capture = NULL;
 static snd_pcm_t *pcm_playback = NULL;
 static char uac_card_path[256] = "";
 static char uac_card_name[64] = "";
+static int consecutive_errors = 0;
+#define MAX_CONSECUTIVE_ERRORS 50  /* После 50 ошибок подряд (~0.5 сек) - переоткрыть PCM */
 
 static void sighandler(int sig) {
     running = 0;
@@ -376,27 +378,56 @@ int main(void) {
         if (err <= 0) {
             if (err == 0) {
                 /* Timeout - это нормально, продолжаем */
+                consecutive_errors = 0;  /* Сброс счетчика */
                 continue;
             }
-            /* Ошибка - добавляем задержку чтобы избежать busy loop */
+            /* Ошибка - увеличиваем счетчик */
+            consecutive_errors++;
+
+            /* Слишком много ошибок подряд - переоткрыть PCM */
+            if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
+                fprintf(stderr, "[ERROR] Too many consecutive errors (%d), reopening PCM devices...\n",
+                        consecutive_errors);
+                close_pcms();
+                consecutive_errors = 0;
+                usleep(500000);  /* 500ms перед переоткрытием */
+                continue;
+            }
+
+            /* Обработка ошибки */
             if (err == -EPIPE) {
                 /* XRUN - попробуем восстановить */
-                fprintf(stderr, "[WARN] snd_pcm_wait: XRUN, recovering...\n");
+                fprintf(stderr, "[WARN] snd_pcm_wait: XRUN, recovering... (error #%d)\n", consecutive_errors);
                 snd_pcm_prepare(pcm_capture);
                 snd_pcm_prepare(pcm_playback);
             } else {
                 /* Другая ошибка - логируем и делаем задержку */
-                fprintf(stderr, "[ERROR] snd_pcm_wait failed: %s (%d)\n", snd_strerror(err), err);
+                fprintf(stderr, "[ERROR] snd_pcm_wait failed: %s (%d) (error #%d)\n",
+                        snd_strerror(err), err, consecutive_errors);
                 usleep(10000);  /* 10ms - предотвращает tight loop */
             }
             continue;
         }
 
+        /* Успешно получили данные - сброс счетчика ошибок */
+        consecutive_errors = 0;
+
         snd_pcm_sframes_t frames = snd_pcm_readi(pcm_capture, buffer, period_size);
 
         if (frames < 0) {
+            consecutive_errors++;
+
+            /* Защита от бесконечных ошибок чтения */
+            if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
+                fprintf(stderr, "[ERROR] Too many read errors (%d), reopening PCM...\n", consecutive_errors);
+                close_pcms();
+                consecutive_errors = 0;
+                usleep(500000);
+                continue;
+            }
+
             if (frames == -EPIPE) {
-                fprintf(stderr, "[XRUN] Capture overrun\n");
+                fprintf(stderr, "[XRUN] Capture overrun (error #%d)\n", consecutive_errors);
                 snd_pcm_prepare(pcm_capture);
                 snd_pcm_prepare(pcm_playback);
                 continue;
@@ -407,11 +438,13 @@ int main(void) {
                     snd_pcm_prepare(pcm_capture);
                 continue;
             } else if (frames == -ENODEV || frames == -EBADF) {
-                printf("[ERROR] Stream disconnected, waiting...\n");
+                fprintf(stderr, "[ERROR] Stream disconnected, waiting... (error #%d)\n", consecutive_errors);
                 close_pcms();
+                consecutive_errors = 0;
                 usleep(500000);  /* 500ms */
                 continue;
             }
+            fprintf(stderr, "[ERROR] Read failed: %s (error #%d)\n", snd_strerror(frames), consecutive_errors);
             usleep(10000);
             continue;
         }

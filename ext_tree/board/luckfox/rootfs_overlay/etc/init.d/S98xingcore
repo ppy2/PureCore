@@ -60,8 +60,9 @@ start() {
     # PCM rates up to 768kHz + Native DSD64/128/256/512
     echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.0/c_srate
     echo 4 > functions/uac2.0/c_ssize
-    echo 1 > functions/uac2.0/c_mute_present
-    echo 1 > functions/uac2.0/c_volume_present
+    # Disable volume/mute for DSD compatibility (kernel can't calculate resolution for 22.5MHz)
+    echo 0 > functions/uac2.0/c_mute_present
+    echo 0 > functions/uac2.0/c_volume_present
     echo 1 > functions/uac2.0/c_hs_bint  # bInterval=1 как в оригинальном XingCore
 
     # Оптимизированные буферы для Roon и равномерной CPU нагрузки
