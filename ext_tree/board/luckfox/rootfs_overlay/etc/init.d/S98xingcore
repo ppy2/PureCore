@@ -57,14 +57,14 @@ start() {
     
     # "Capture" settings (actually used for playback due to kernel bug)
     echo 3 > functions/uac2.0/c_chmask
-    echo "44100,48000,88200,96000,176400,192000" > functions/uac2.0/c_srate
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.0/c_srate
     echo 4 > functions/uac2.0/c_ssize
     echo 1 > functions/uac2.0/c_mute_present
     echo 1 > functions/uac2.0/c_volume_present
     echo 1 > functions/uac2.0/c_hs_bint  # bInterval=1 как в оригинальном XingCore
 
-    # Увеличенные буферы для высоких частот и Roon совместимости
-    echo 16 > functions/uac2.0/req_number  # Больше USB request буферов
+    # Оптимизированные буферы для Roon и равномерной CPU нагрузки
+    echo 12 > functions/uac2.0/req_number   # Компромисс между Roon и CPU нагрузкой
     echo 50 > functions/uac2.0/fb_max      # Больший feedback bandwidth для async
 
     # No playback (we use capture path for playback)

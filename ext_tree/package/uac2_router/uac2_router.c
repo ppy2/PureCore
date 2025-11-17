@@ -13,7 +13,7 @@
 
 #define UAC2_CARD "hw:1,0"
 #define I2S_CARD "hw:0,0"
-#define PERIOD_FRAMES 256
+#define PERIOD_FRAMES 512  /* Баланс между CPU и равномерностью нагрузки */
 
 /* Новый sysfs интерфейс от модифицированного драйвера u_audio.c */
 #define SYSFS_UAC2_PATH "/sys/class/u_audio"
@@ -301,7 +301,7 @@ int main(void) {
 
     /* Основной цикл */
     while (running) {
-        /* Неблокирующая проверка uevent (не задерживает аудио) */
+        /* Неблокирующая проверка uevent (MSG_DONTWAIT очень быстрый если нет события) */
         ssize_t len = recv(uevent_sock, uevent_buf, sizeof(uevent_buf) - 1, MSG_DONTWAIT);
         if (len > 0) {
             uevent_buf[len] = '\0';
@@ -324,6 +324,17 @@ int main(void) {
         /* Маршрутизация аудио */
         if (!pcm_capture || !pcm_playback) {
             usleep(100000);  /* 100ms */
+            continue;
+        }
+
+        /* Ждать когда данные доступны (снижает CPU нагрузку) */
+        int err = snd_pcm_wait(pcm_capture, 100);  /* Timeout 100ms */
+        if (err <= 0) {
+            if (err == 0) {
+                /* Timeout - это нормально, продолжаем */
+                continue;
+            }
+            /* Ошибка */
             continue;
         }
 
