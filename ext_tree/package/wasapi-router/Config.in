@@ -1,0 +1,6 @@
+config BR2_PACKAGE_WASAPI_ROUTER
+	bool "wasapi-router"
+	help
+	  Advanced USB UAC2 to I2S audio router with WASAPI support
+	  Supports dynamic format switching for WASAPI exclusive mode
+	  Handles 16/24/32-bit formats and all standard sample rates

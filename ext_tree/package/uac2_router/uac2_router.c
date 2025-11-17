@@ -1,357 +1,389 @@
-/*
- * USB UAC2 to I2S Audio Router Daemon
- * 
- * Features:
- * - Detects USB audio stream sample rate (44.1-384kHz)
- * - Automatically configures I2S PLL to match sample rate
- * - Zero-copy audio routing from USB to I2S DAC
- * - Supports 16/24/32-bit PCM formats
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
 #include <alsa/asoundlib.h>
-#include <pthread.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
+#include <fcntl.h>
 #include <errno.h>
+#include <poll.h>
 
-#define PERIOD_SIZE 2048
-#define BUFFER_SIZE (PERIOD_SIZE * 4)
+#define UAC2_CARD "hw:1,0"
+#define I2S_CARD "hw:0,0"
+#define PERIOD_FRAMES 256
 
-typedef struct {
-    snd_pcm_t *capture_handle;
-    snd_pcm_t *playback_handle;
-    unsigned int current_rate;
-    int running;
-    pthread_t thread;
-} audio_router_t;
+/* Новый sysfs интерфейс от модифицированного драйвера u_audio.c */
+#define SYSFS_UAC2_PATH "/sys/class/u_audio"
+#define SYSFS_RATE_FILE "rate"
+#define SYSFS_FORMAT_FILE "format"
+#define SYSFS_CHANNELS_FILE "channels"
 
-static audio_router_t router = {0};
+/* Фиксированный формат для I2S (как в оригинальном XingCore) */
+#define I2S_FORMAT SND_PCM_FORMAT_S32_LE  /* Всегда 32-бит */
+#define I2S_CHANNELS 2                     /* Всегда стерео */
 
-/* Signal handler for graceful shutdown */
-void signal_handler(int sig) {
-    printf("\nShutting down...\n");
-    router.running = 0;
+/* Размер буфера для netlink uevent */
+#define UEVENT_BUFFER_SIZE 4096
+
+static volatile int running = 1;
+static snd_pcm_t *pcm_capture = NULL;
+static snd_pcm_t *pcm_playback = NULL;
+static char uac_card_path[256] = "";
+static char uac_card_name[64] = "";
+
+static void sighandler(int sig) {
+    running = 0;
 }
 
-/* Find ALSA card by name substring */
-int find_card_by_name(const char *substring) {
-    int card = -1;
-    char *name;
-    
-    while (snd_card_next(&card) >= 0 && card >= 0) {
-        if (snd_card_get_name(card, &name) < 0)
-            continue;
-        if (strstr(name, substring) != NULL) {
-            free(name);
-            return card;
+/* Найти UAC карту в /sys/class/u_audio/ */
+static int find_uac_card(void) {
+    char path[256];
+    struct stat st;
+
+    /* Попробуем uac_card0, uac_card1, etc */
+    for (int i = 0; i < 10; i++) {
+        snprintf(path, sizeof(path), "%s/uac_card%d", SYSFS_UAC2_PATH, i);
+        if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            strncpy(uac_card_path, path, sizeof(uac_card_path) - 1);
+            snprintf(uac_card_name, sizeof(uac_card_name), "uac_card%d", i);
+            printf("Found UAC card: %s\n", uac_card_path);
+            return 0;
         }
-        free(name);
     }
+
+    fprintf(stderr, "ERROR: No UAC card found in %s\n", SYSFS_UAC2_PATH);
     return -1;
 }
 
-/* Configure ALSA PCM device */
-int configure_pcm(snd_pcm_t *handle, unsigned int rate, int is_capture) {
+/* Читать значение из sysfs файла */
+static int read_sysfs_int(const char *filename) {
+    char path[512];
+    FILE *fp;
+    int value = 0;
+
+    snprintf(path, sizeof(path), "%s/%s", uac_card_path, filename);
+    fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+
+    if (fscanf(fp, "%d", &value) != 1) {
+        fclose(fp);
+        return -1;
+    }
+
+    fclose(fp);
+    return value;
+}
+
+/* Создать netlink socket для uevent */
+static int create_uevent_socket(void) {
+    struct sockaddr_nl addr;
+    int sock;
+
+    sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+    if (sock < 0) {
+        fprintf(stderr, "Cannot create netlink socket: %s\n", strerror(errno));
+        return -1;
+    }
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = 1;  /* Kernel events */
+    addr.nl_pid = getpid();
+
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        fprintf(stderr, "Cannot bind netlink socket: %s\n", strerror(errno));
+        close(sock);
+        return -1;
+    }
+
+    return sock;
+}
+
+/* Настроить PCM устройство */
+static int setup_pcm(snd_pcm_t **pcm, const char *device, snd_pcm_stream_t stream,
+                     unsigned int rate, snd_pcm_format_t format, unsigned int channels)
+{
     snd_pcm_hw_params_t *hw_params;
     snd_pcm_sw_params_t *sw_params;
     int err;
-    unsigned int actual_rate = rate;
-    
-    snd_pcm_hw_params_alloca(&hw_params);
-    snd_pcm_sw_params_alloca(&sw_params);
-    
+    snd_pcm_uframes_t period_size = PERIOD_FRAMES;
+    snd_pcm_uframes_t buffer_size = PERIOD_FRAMES * 4;
+
+    if ((err = snd_pcm_open(pcm, device, stream, 0)) < 0) {
+        fprintf(stderr, "Cannot open %s: %s\n", device, snd_strerror(err));
+        return err;
+    }
+
     /* Hardware parameters */
-    if ((err = snd_pcm_hw_params_any(handle, hw_params)) < 0) {
-        fprintf(stderr, "Cannot initialize hw params: %s\n", snd_strerror(err));
+    snd_pcm_hw_params_alloca(&hw_params);
+    snd_pcm_hw_params_any(*pcm, hw_params);
+    snd_pcm_hw_params_set_access(*pcm, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    snd_pcm_hw_params_set_format(*pcm, hw_params, format);
+    snd_pcm_hw_params_set_channels(*pcm, hw_params, channels);
+    snd_pcm_hw_params_set_rate_near(*pcm, hw_params, &rate, 0);
+
+    /* Set explicit period and buffer sizes */
+    snd_pcm_hw_params_set_period_size_near(*pcm, hw_params, &period_size, 0);
+    snd_pcm_hw_params_set_buffer_size_near(*pcm, hw_params, &buffer_size);
+
+    if ((err = snd_pcm_hw_params(*pcm, hw_params)) < 0) {
+        fprintf(stderr, "Cannot set hw params for %s: %s\n", device, snd_strerror(err));
+        snd_pcm_close(*pcm);
+        *pcm = NULL;
         return err;
     }
-    
-    if ((err = snd_pcm_hw_params_set_access(handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-        fprintf(stderr, "Cannot set access type: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    /* Try 32-bit first, fallback to 24-bit, then 16-bit */
-    if (snd_pcm_hw_params_set_format(handle, hw_params, SND_PCM_FORMAT_S32_LE) < 0) {
-        if (snd_pcm_hw_params_set_format(handle, hw_params, SND_PCM_FORMAT_S24_LE) < 0) {
-            if ((err = snd_pcm_hw_params_set_format(handle, hw_params, SND_PCM_FORMAT_S16_LE)) < 0) {
-                fprintf(stderr, "Cannot set sample format: %s\n", snd_strerror(err));
-                return err;
-            }
-        }
-    }
-    
-    if ((err = snd_pcm_hw_params_set_channels(handle, hw_params, 2)) < 0) {
-        fprintf(stderr, "Cannot set channel count: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if ((err = snd_pcm_hw_params_set_rate_near(handle, hw_params, &actual_rate, 0)) < 0) {
-        fprintf(stderr, "Cannot set sample rate: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if (actual_rate != rate) {
-        fprintf(stderr, "Warning: Rate %u Hz not supported, using %u Hz\n", rate, actual_rate);
-    }
-    
-    snd_pcm_uframes_t period_size = PERIOD_SIZE;
-    if ((err = snd_pcm_hw_params_set_period_size_near(handle, hw_params, &period_size, 0)) < 0) {
-        fprintf(stderr, "Cannot set period size: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    snd_pcm_uframes_t buffer_size = BUFFER_SIZE;
-    if ((err = snd_pcm_hw_params_set_buffer_size_near(handle, hw_params, &buffer_size)) < 0) {
-        fprintf(stderr, "Cannot set buffer size: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if ((err = snd_pcm_hw_params(handle, hw_params)) < 0) {
-        fprintf(stderr, "Cannot set hw parameters: %s\n", snd_strerror(err));
-        return err;
-    }
-    
+
+    snd_pcm_hw_params_get_period_size(hw_params, &period_size, 0);
+    snd_pcm_hw_params_get_buffer_size(hw_params, &buffer_size);
+    snd_pcm_hw_params_get_rate(hw_params, &rate, 0);
+
     /* Software parameters */
-    if ((err = snd_pcm_sw_params_current(handle, sw_params)) < 0) {
-        fprintf(stderr, "Cannot get sw params: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if ((err = snd_pcm_sw_params_set_start_threshold(handle, sw_params, period_size)) < 0) {
-        fprintf(stderr, "Cannot set start threshold: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if ((err = snd_pcm_sw_params_set_avail_min(handle, sw_params, period_size)) < 0) {
-        fprintf(stderr, "Cannot set avail min: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    if ((err = snd_pcm_sw_params(handle, sw_params)) < 0) {
-        fprintf(stderr, "Cannot set sw parameters: %s\n", snd_strerror(err));
-        return err;
-    }
-    
-    printf("%s configured: %u Hz, period=%lu, buffer=%lu\n", 
-           is_capture ? "Capture" : "Playback", actual_rate, period_size, buffer_size);
-    
+    snd_pcm_sw_params_alloca(&sw_params);
+    snd_pcm_sw_params_current(*pcm, sw_params);
+    snd_pcm_sw_params_set_start_threshold(*pcm, sw_params, buffer_size / 2);
+    snd_pcm_sw_params_set_avail_min(*pcm, sw_params, period_size);
+    snd_pcm_sw_params(*pcm, sw_params);
+
+    printf("  %s: %u Hz, %s, %u ch, period %lu, buffer %lu frames\n",
+           device, rate, snd_pcm_format_name(format), channels, period_size, buffer_size);
+
     return 0;
 }
 
-/* Open and configure audio devices */
-int open_audio_devices(unsigned int rate) {
-    int uac2_card, i2s_card;
-    char pcm_name[32];
-    int err;
-    
-    /* Find cards */
-    uac2_card = find_card_by_name("UAC2");
-    i2s_card = find_card_by_name("I2S");
-    
-    if (uac2_card < 0) {
-        fprintf(stderr, "UAC2 card not found!\n");
+/* Закрыть PCM устройства */
+static void close_pcms(void) {
+    if (pcm_capture) {
+        snd_pcm_drop(pcm_capture);
+        snd_pcm_close(pcm_capture);
+        pcm_capture = NULL;
+    }
+    if (pcm_playback) {
+        snd_pcm_drop(pcm_playback);
+        snd_pcm_close(pcm_playback);
+        pcm_playback = NULL;
+    }
+}
+
+/* Настроить аудио с заданной частотой */
+static int configure_audio(unsigned int rate, char **buffer, size_t *buffer_size,
+                          snd_pcm_uframes_t *period_size_out) {
+    snd_pcm_uframes_t capture_period_size, playback_period_size;
+
+    printf("\n[CONFIG] Setting up audio: %u Hz, 32-bit, Stereo\n", rate);
+
+    close_pcms();
+
+    /* UAC2 capture */
+    if (setup_pcm(&pcm_capture, UAC2_CARD, SND_PCM_STREAM_CAPTURE,
+                  rate, I2S_FORMAT, I2S_CHANNELS) < 0) {
         return -1;
     }
-    
-    if (i2s_card < 0) {
-        fprintf(stderr, "I2S card not found!\n");
+
+    /* I2S playback - всегда 32-бит стерео (как XingCore) */
+    if (setup_pcm(&pcm_playback, I2S_CARD, SND_PCM_STREAM_PLAYBACK,
+                  rate, I2S_FORMAT, I2S_CHANNELS) < 0) {
+        close_pcms();
         return -1;
     }
-    
-    printf("Found UAC2 card %d, I2S card %d\n", uac2_card, i2s_card);
-    
-    /* Open capture (USB input) */
-    snprintf(pcm_name, sizeof(pcm_name), "hw:%d,0", uac2_card);
-    if ((err = snd_pcm_open(&router.capture_handle, pcm_name, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-        fprintf(stderr, "Cannot open capture device %s: %s\n", pcm_name, snd_strerror(err));
-        return err;
-    }
-    
-    /* Open playback (I2S output) */
-    snprintf(pcm_name, sizeof(pcm_name), "hw:%d,0", i2s_card);
-    if ((err = snd_pcm_open(&router.playback_handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
-        fprintf(stderr, "Cannot open playback device %s: %s\n", pcm_name, snd_strerror(err));
-        snd_pcm_close(router.capture_handle);
-        return err;
-    }
-    
-    /* Configure devices */
-    if (configure_pcm(router.capture_handle, rate, 1) < 0) {
-        snd_pcm_close(router.capture_handle);
-        snd_pcm_close(router.playback_handle);
+
+    /* Получить период размеры для обоих устройств */
+    snd_pcm_hw_params_t *hw;
+    snd_pcm_hw_params_alloca(&hw);
+
+    snd_pcm_hw_params_current(pcm_capture, hw);
+    snd_pcm_hw_params_get_period_size(hw, &capture_period_size, 0);
+
+    snd_pcm_hw_params_current(pcm_playback, hw);
+    snd_pcm_hw_params_get_period_size(hw, &playback_period_size, 0);
+
+    /* Используем меньший период для чтения */
+    *period_size_out = capture_period_size;
+
+    /* Выделить буфер размером с больший период (для накопления данных) */
+    snd_pcm_uframes_t max_period = (capture_period_size > playback_period_size) ?
+                                    capture_period_size : playback_period_size;
+    size_t frame_bytes = snd_pcm_format_physical_width(I2S_FORMAT) / 8 * I2S_CHANNELS;
+    *buffer_size = max_period * frame_bytes;
+    *buffer = realloc(*buffer, *buffer_size);
+
+    if (!*buffer) {
+        fprintf(stderr, "Cannot allocate buffer\n");
+        close_pcms();
         return -1;
     }
-    
-    if (configure_pcm(router.playback_handle, rate, 0) < 0) {
-        snd_pcm_close(router.capture_handle);
-        snd_pcm_close(router.playback_handle);
+
+    /* Подготовить оба устройства */
+    if (snd_pcm_prepare(pcm_capture) < 0) {
+        fprintf(stderr, "Cannot prepare capture\n");
+        close_pcms();
         return -1;
     }
-    
-    /* Prepare devices */
-    if ((err = snd_pcm_prepare(router.capture_handle)) < 0) {
-        fprintf(stderr, "Cannot prepare capture: %s\n", snd_strerror(err));
-        return err;
+
+    if (snd_pcm_prepare(pcm_playback) < 0) {
+        fprintf(stderr, "Cannot prepare playback\n");
+        close_pcms();
+        return -1;
     }
-    
-    if ((err = snd_pcm_prepare(router.playback_handle)) < 0) {
-        fprintf(stderr, "Cannot prepare playback: %s\n", snd_strerror(err));
-        return err;
+
+    /* Запустить capture (playback запустится автоматически при первой записи) */
+    if (snd_pcm_start(pcm_capture) < 0) {
+        fprintf(stderr, "Cannot start capture\n");
+        close_pcms();
+        return -1;
     }
-    
+
+    printf("[CONFIG] Audio configured successfully\n\n");
     return 0;
 }
 
-/* Audio routing thread */
-void* audio_thread(void *arg) {
-    char *buffer;
-    snd_pcm_sframes_t frames;
-    int buffer_size = PERIOD_SIZE * 2 * 4; // stereo * 32-bit
-    
-    buffer = malloc(buffer_size);
-    if (!buffer) {
-        fprintf(stderr, "Cannot allocate audio buffer\n");
-        return NULL;
-    }
-    
-    printf("Audio routing started at %u Hz\n", router.current_rate);
-    
-    /* Start capture */
-    snd_pcm_start(router.capture_handle);
-    
-    while (router.running) {
-        /* Read from USB (capture) */
-        frames = snd_pcm_readi(router.capture_handle, buffer, PERIOD_SIZE);
-        
-        if (frames < 0) {
-            if (frames == -EPIPE) {
-                fprintf(stderr, "Capture overrun, recovering...\n");
-                snd_pcm_prepare(router.capture_handle);
-                snd_pcm_start(router.capture_handle);
-                continue;
-            } else if (frames == -ESTRPIPE) {
-                fprintf(stderr, "Capture suspended, recovering...\n");
-                while ((frames = snd_pcm_resume(router.capture_handle)) == -EAGAIN)
-                    sleep(1);
-                if (frames < 0) {
-                    snd_pcm_prepare(router.capture_handle);
-                    snd_pcm_start(router.capture_handle);
-                }
-                continue;
-            } else {
-                fprintf(stderr, "Read error: %s\n", snd_strerror(frames));
-                break;
-            }
-        }
-        
-        if (frames < PERIOD_SIZE) {
-            fprintf(stderr, "Short read: %ld frames\n", frames);
-        }
-        
-        /* Write to I2S (playback) */
-        frames = snd_pcm_writei(router.playback_handle, buffer, frames);
-        
-        if (frames < 0) {
-            if (frames == -EPIPE) {
-                fprintf(stderr, "Playback underrun, recovering...\n");
-                snd_pcm_prepare(router.playback_handle);
-                continue;
-            } else if (frames == -ESTRPIPE) {
-                fprintf(stderr, "Playback suspended, recovering...\n");
-                while ((frames = snd_pcm_resume(router.playback_handle)) == -EAGAIN)
-                    sleep(1);
-                if (frames < 0)
-                    snd_pcm_prepare(router.playback_handle);
-                continue;
-            } else {
-                fprintf(stderr, "Write error: %s\n", snd_strerror(frames));
-                break;
-            }
-        }
-    }
-    
-    free(buffer);
-    printf("Audio routing stopped\n");
-    return NULL;
-}
+int main(void) {
+    char *buffer = NULL;
+    size_t buffer_size = 0;
+    unsigned int current_rate = 0;
+    snd_pcm_uframes_t period_size = PERIOD_FRAMES;
+    int uevent_sock = -1;
+    char uevent_buf[UEVENT_BUFFER_SIZE];
 
-/* Start audio routing */
-int start_routing(unsigned int rate) {
-    if (router.running) {
-        fprintf(stderr, "Router already running\n");
-        return -1;
-    }
-    
-    if (open_audio_devices(rate) < 0) {
-        return -1;
-    }
-    
-    router.current_rate = rate;
-    router.running = 1;
-    
-    if (pthread_create(&router.thread, NULL, audio_thread, NULL) != 0) {
-        fprintf(stderr, "Cannot create audio thread\n");
-        router.running = 0;
-        snd_pcm_close(router.capture_handle);
-        snd_pcm_close(router.playback_handle);
-        return -1;
-    }
-    
-    return 0;
-}
+    signal(SIGINT, sighandler);
+    signal(SIGTERM, sighandler);
 
-/* Stop audio routing */
-void stop_routing(void) {
-    if (!router.running)
-        return;
-    
-    router.running = 0;
-    pthread_join(router.thread, NULL);
-    
-    snd_pcm_drop(router.capture_handle);
-    snd_pcm_drop(router.playback_handle);
-    snd_pcm_close(router.capture_handle);
-    snd_pcm_close(router.playback_handle);
-    
-    router.capture_handle = NULL;
-    router.playback_handle = NULL;
-}
+    printf("═══════════════════════════════════════════════════════════\n");
+    printf("  UAC2 -> I2S Router (uevent-based, XingCore compatible)\n");
+    printf("═══════════════════════════════════════════════════════════\n\n");
 
-int main(int argc, char *argv[]) {
-    unsigned int sample_rate = 48000; // Default
-    
-    if (argc > 1) {
-        sample_rate = atoi(argv[1]);
-        if (sample_rate < 44100 || sample_rate > 384000) {
-            fprintf(stderr, "Invalid sample rate: %u (must be 44100-384000)\n", sample_rate);
-            return 1;
-        }
-    }
-    
-    printf("USB UAC2 to I2S Audio Router\n");
-    printf("Sample rate: %u Hz\n", sample_rate);
-    
-    /* Setup signal handlers */
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-    
-    /* Start routing */
-    if (start_routing(sample_rate) < 0) {
-        fprintf(stderr, "Failed to start audio routing\n");
+    /* Найти UAC карту */
+    if (find_uac_card() < 0) {
+        fprintf(stderr, "ERROR: UAC2 device not found. Is gadget loaded?\n");
         return 1;
     }
-    
-    /* Run until signal */
-    while (router.running) {
-        sleep(1);
+
+    /* Прочитать статичные параметры (format и channels) */
+    int format_bytes = read_sysfs_int(SYSFS_FORMAT_FILE);
+    int channels = read_sysfs_int(SYSFS_CHANNELS_FILE);
+
+    if (format_bytes < 0 || channels < 0) {
+        fprintf(stderr, "ERROR: Cannot read UAC2 configuration\n");
+        return 1;
     }
-    
-    stop_routing();
-    
-    printf("Done\n");
+
+    printf("UAC2 Configuration (static):\n");
+    printf("  Format:   %d bytes (%d-bit)\n", format_bytes, format_bytes * 8);
+    printf("  Channels: %d\n\n", channels);
+
+    if (format_bytes != 4) {
+        printf("WARNING: UAC2 format is not 32-bit. Recommended:\n");
+        printf("  echo 4 > /sys/kernel/config/usb_gadget/xingcore/functions/uac2.0/c_ssize\n\n");
+    }
+
+    /* Создать netlink socket для uevent */
+    uevent_sock = create_uevent_socket();
+    if (uevent_sock < 0) {
+        fprintf(stderr, "ERROR: Cannot create uevent socket\n");
+        return 1;
+    }
+
+    printf("Listening for kobject uevent from u_audio driver...\n");
+    printf("Waiting for rate changes...\n\n");
+
+    /* Прочитать начальную частоту и настроить аудио */
+    int rate = read_sysfs_int(SYSFS_RATE_FILE);
+    if (rate > 0) {
+        printf("Initial rate: %d Hz\n", rate);
+        if (configure_audio(rate, &buffer, &buffer_size, &period_size) == 0) {
+            current_rate = rate;
+        }
+    }
+
+    /* Основной цикл */
+    while (running) {
+        /* Неблокирующая проверка uevent (не задерживает аудио) */
+        ssize_t len = recv(uevent_sock, uevent_buf, sizeof(uevent_buf) - 1, MSG_DONTWAIT);
+        if (len > 0) {
+            uevent_buf[len] = '\0';
+
+            /* Проверить, что это событие от нашей UAC карты */
+            if (strstr(uevent_buf, "u_audio") && strstr(uevent_buf, uac_card_name)) {
+                /* Прочитать новую частоту */
+                rate = read_sysfs_int(SYSFS_RATE_FILE);
+
+                if (rate > 0 && rate != current_rate) {
+                    printf("\n[CHANGE] Rate changed: %u Hz -> %u Hz\n", current_rate, rate);
+
+                    if (configure_audio(rate, &buffer, &buffer_size, &period_size) == 0) {
+                        current_rate = rate;
+                    }
+                }
+            }
+        }
+
+        /* Маршрутизация аудио */
+        if (!pcm_capture || !pcm_playback) {
+            usleep(100000);  /* 100ms */
+            continue;
+        }
+
+        snd_pcm_sframes_t frames = snd_pcm_readi(pcm_capture, buffer, period_size);
+
+        if (frames < 0) {
+            if (frames == -EPIPE) {
+                fprintf(stderr, "[XRUN] Capture overrun\n");
+                snd_pcm_prepare(pcm_capture);
+                snd_pcm_prepare(pcm_playback);
+                continue;
+            } else if (frames == -ESTRPIPE) {
+                while ((frames = snd_pcm_resume(pcm_capture)) == -EAGAIN)
+                    usleep(10000);
+                if (frames < 0)
+                    snd_pcm_prepare(pcm_capture);
+                continue;
+            } else if (frames == -ENODEV || frames == -EBADF) {
+                printf("[ERROR] Stream disconnected, waiting...\n");
+                close_pcms();
+                usleep(500000);  /* 500ms */
+                continue;
+            }
+            usleep(10000);
+            continue;
+        }
+
+        if (frames > 0) {
+            snd_pcm_sframes_t written = snd_pcm_writei(pcm_playback, buffer, frames);
+            if (written < 0) {
+                if (written == -EPIPE) {
+                    fprintf(stderr, "[XRUN] Playback underrun\n");
+                    snd_pcm_prepare(pcm_playback);
+                } else if (written == -ESTRPIPE) {
+                    while ((written = snd_pcm_resume(pcm_playback)) == -EAGAIN)
+                        usleep(10000);
+                    if (written < 0)
+                        snd_pcm_prepare(pcm_playback);
+                } else if (written == -ENODEV || written == -EBADF) {
+                    printf("[ERROR] Playback error, reinitializing...\n");
+                    close_pcms();
+                    usleep(500000);
+                }
+                continue;
+            }
+        }
+    }
+
+    /* Cleanup */
+    if (uevent_sock >= 0)
+        close(uevent_sock);
+
+    if (buffer)
+        free(buffer);
+
+    close_pcms();
+
+    printf("\n═══════════════════════════════════════════════════════════\n");
+    printf("  UAC2 -> I2S Router stopped\n");
+    printf("═══════════════════════════════════════════════════════════\n");
+
     return 0;
 }

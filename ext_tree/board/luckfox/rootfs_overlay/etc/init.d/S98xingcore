@@ -16,12 +16,18 @@ start() {
     # Создаем XingCore гаджет
     cd /sys/kernel/config/usb_gadget
 
-    # Удаляем старые гаджеты
-    for gadget in *; do
-        if [ -d "$gadget" ] && [ "$gadget" != "." ] && [ "$gadget" != ".." ]; then
-            echo "" > "$gadget/UDC" 2>/dev/null
-        fi
-    done
+    # Полностью удаляем старый gadget если существует
+    if [ -d "xingcore" ]; then
+        cd xingcore
+        echo "" > UDC 2>/dev/null
+        rm -f configs/c.1/uac2.0 2>/dev/null
+        rmdir configs/c.1/strings/0x409 2>/dev/null
+        rmdir configs/c.1 2>/dev/null
+        rmdir functions/uac2.0 2>/dev/null
+        rmdir strings/0x409 2>/dev/null
+        cd ..
+        rmdir xingcore 2>/dev/null
+    fi
 
     mkdir -p xingcore
     cd xingcore
@@ -55,6 +61,11 @@ start() {
     echo 4 > functions/uac2.0/c_ssize
     echo 1 > functions/uac2.0/c_mute_present
     echo 1 > functions/uac2.0/c_volume_present
+    echo 1 > functions/uac2.0/c_hs_bint  # bInterval=1 как в оригинальном XingCore
+
+    # Увеличенные буферы для высоких частот и Roon совместимости
+    echo 16 > functions/uac2.0/req_number  # Больше USB request буферов
+    echo 50 > functions/uac2.0/fb_max      # Больший feedback bandwidth для async
 
     # No playback (we use capture path for playback)
     echo 0 > functions/uac2.0/p_chmask

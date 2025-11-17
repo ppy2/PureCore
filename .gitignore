@@ -12,5 +12,6 @@ buildroot/*.diff
 *~
 *.pyc
 .claude
+.qoder
 
 

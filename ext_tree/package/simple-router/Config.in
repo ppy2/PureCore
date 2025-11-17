@@ -1,0 +1,4 @@
+config BR2_PACKAGE_SIMPLE_ROUTER
+	bool "simple-router"
+	help
+	  Simple USB UAC2 to I2S audio router

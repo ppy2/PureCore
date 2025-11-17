@@ -85,7 +85,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-i
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-14 11:19:36.178514186 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-17 08:30:34.311869281 +0300
 @@ -29,10 +29,10 @@
   *  controlled by two clock sources :
   *    CLK_5 := c_srate, and CLK_6 := p_srate
@@ -562,6 +562,240 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  
  	hs_epin_desc.bInterval = uac2_opts->p_hs_bint;
  	ss_epin_desc.bInterval = uac2_opts->p_hs_bint;
+diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-17 11:44:28.706887751 +0300
+@@ -82,6 +82,13 @@
+ 	struct snd_card *card;
+ 	struct snd_pcm *pcm;
+ 
++	/* Sysfs attributes for format change notification */
++	struct device *dev;
++	struct kobject *kobj;
++	int current_rate;
++	int current_format;
++	int current_channels;
++
+ 	/* pre-calculated values for playback iso completion */
+ 	unsigned long long p_residue_mil;
+ 	unsigned int p_interval;
+@@ -100,7 +107,6 @@
+ };
+ 
+ static struct class *audio_class;
+-
+ static void u_audio_set_fback_frequency(enum usb_device_speed speed,
+ 					struct usb_ep *out_ep,
+ 					unsigned long long freq,
+@@ -395,6 +401,7 @@
+ 	struct uac_rtd_params *prm;
+ 	int p_ssize, c_ssize;
+ 	int p_chmask, c_chmask;
++	int old_rate, old_format, old_channels;
+ 
+ 	audio_dev = uac->audio_dev;
+ 	params = &audio_dev->params;
+@@ -424,6 +431,15 @@
+ 
+ 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
+ 
++	/* Initialize static sysfs attributes (format and channels are fixed in UAC2 config) */
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
++		uac->current_format = c_ssize;
++		uac->current_channels = num_channels(c_chmask);
++	} else {
++		uac->current_format = p_ssize;
++		uac->current_channels = num_channels(p_chmask);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -516,6 +532,7 @@
+ 	struct uac_rtd_params *prm;
+ 	int i;
+ 	unsigned long flags;
++	int old_rate;
+ 
+ 	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
+ 	prm = &uac->c_prm;
+@@ -526,6 +543,16 @@
+ 			audio_dev->usb_state[SET_SAMPLE_RATE_OUT] = true;
+ 			schedule_work(&audio_dev->work);
+ 			spin_unlock_irqrestore(&prm->lock, flags);
++
++			/* Update sysfs rate attribute */
++			old_rate = uac->current_rate;
++			uac->current_rate = srate;
++
++			if (uac->kobj && old_rate != srate) {
++				sysfs_notify(uac->kobj, NULL, "rate");
++				kobject_uevent(uac->kobj, KOBJ_CHANGE);
++			}
++
+ 			return 0;
+ 		}
+ 		if (params->c_srates[i] == 0)
+@@ -557,6 +584,7 @@
+ 	struct uac_rtd_params *prm;
+ 	int i;
+ 	unsigned long flags;
++	int old_rate;
+ 
+ 	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
+ 	prm = &uac->p_prm;
+@@ -567,6 +595,16 @@
+ 			audio_dev->usb_state[SET_SAMPLE_RATE_IN] = true;
+ 			schedule_work(&audio_dev->work);
+ 			spin_unlock_irqrestore(&prm->lock, flags);
++
++			/* Update sysfs rate attribute */
++			old_rate = uac->current_rate;
++			uac->current_rate = srate;
++
++			if (uac->kobj && old_rate != srate) {
++				sysfs_notify(uac->kobj, NULL, "rate");
++				kobject_uevent(uac->kobj, KOBJ_CHANGE);
++			}
++
+ 			return 0;
+ 		}
+ 		if (params->p_srates[i] == 0)
+@@ -654,6 +692,13 @@
+ 
+ 	set_active(&uac->c_prm, true);
+ 
++	/* Update sysfs rate (format and channels are static - set in uac_pcm_open) */
++	uac->current_rate = prm->srate;
++	if (uac->kobj) {
++		sysfs_notify(uac->kobj, NULL, "rate");
++		kobject_uevent(uac->kobj, KOBJ_CHANGE);
++	}
++
+ 	ep_fback = audio_dev->in_ep_fback;
+ 	if (!ep_fback)
+ 		return 0;
+@@ -807,6 +852,13 @@
+ 
+ 	set_active(&uac->p_prm, true);
+ 
++	/* Update sysfs rate (format and channels are static - set in uac_pcm_open) */
++	uac->current_rate = prm->srate;
++	if (uac->kobj) {
++		sysfs_notify(uac->kobj, NULL, "rate");
++		kobject_uevent(uac->kobj, KOBJ_CHANGE);
++	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(u_audio_start_playback);
+@@ -1423,6 +1475,40 @@
+ 	schedule_delayed_work(&g_audio->ppm_work, 1 * HZ);
+ }
+ 
++/* Sysfs attributes for format change notification */
++static ssize_t rate_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	return sprintf(buf, "%d\n", uac->current_rate);
++}
++
++static ssize_t format_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	return sprintf(buf, "%d\n", uac->current_format);
++}
++
++static ssize_t channels_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	return sprintf(buf, "%d\n", uac->current_channels);
++}
++
++static DEVICE_ATTR_RO(rate);
++static DEVICE_ATTR_RO(format);
++static DEVICE_ATTR_RO(channels);
++
++static struct attribute *uac_attrs[] = {
++	&dev_attr_rate.attr,
++	&dev_attr_format.attr,
++	&dev_attr_channels.attr,
++	NULL,
++};
++
++static const struct attribute_group uac_attr_group = {
++	.attrs = uac_attrs,
++};
++
+ int g_audio_setup(struct g_audio *g_audio, const char *pcm_name,
+ 					const char *card_name)
+ {
+@@ -1511,6 +1597,11 @@
+ 
+ 	uac->card = card;
+ 
++	/* Initialize current format parameters */
++	uac->current_rate = params->c_srates[0];
++	uac->current_format = params->c_ssize;
++	uac->current_channels = num_channels(c_chmask);
++
+ 	/*
+ 	 * Create first PCM device
+ 	 * Create a substream only for non-zero channel streams
+@@ -1674,6 +1765,26 @@
+ 	if (err < 0)
+ 		goto snd_fail;
+ 
++	/* Create sysfs attributes for format change notification */
++	uac->dev = device_create(audio_class, NULL, MKDEV(0, 0), uac,
++				"uac_card%d", card->number);
++	if (IS_ERR(uac->dev)) {
++		err = PTR_ERR(uac->dev);
++		uac->dev = NULL;
++		/* Continue without sysfs - not fatal */
++		goto skip_sysfs;
++	}
++
++	uac->kobj = &uac->dev->kobj;
++	err = sysfs_create_group(uac->kobj, &uac_attr_group);
++	if (err < 0) {
++		device_destroy(audio_class, uac->dev->devt);
++		uac->dev = NULL;
++		/* Continue without sysfs - not fatal */
++		goto skip_sysfs;
++	}
++
++skip_sysfs:
+ 	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
+ 					"%s", g_audio->uac->card->longname);
+ 	if (IS_ERR(g_audio->device)) {
+@@ -1718,6 +1829,12 @@
+ 	uac = g_audio->uac;
+ 	g_audio->uac = NULL;
+ 
++	/* Cleanup sysfs attributes */
++	if (uac->dev) {
++		sysfs_remove_group(uac->kobj, &uac_attr_group);
++		device_destroy(audio_class, uac->dev->devt);
++	}
++
+ 	card = uac->card;
+ 	if (card)
+ 		snd_card_free_when_closed(card);
+@@ -1745,13 +1862,6 @@
+ }
+ module_init(u_audio_init);
+ 
+-static void __exit u_audio_exit(void)
+-{
+-	if (audio_class)
+-		class_destroy(audio_class);
+-}
+-module_exit(u_audio_exit);
+-
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("USB gadget \"ALSA sound card\" utilities");
+ MODULE_AUTHOR("Ruslan Bilovol");
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile
 --- linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile	2025-11-07 17:11:17.088713026 +0300
@@ -768,7 +1002,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linu
  };
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-13 17:03:45.820670745 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-17 08:30:34.315869378 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver

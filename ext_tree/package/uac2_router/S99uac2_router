@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# UAC2 -> I2S Router startup script
+#
+
+DAEMON=/opt/uac2_router
+PIDFILE=/var/run/uac2_router.pid
+
+start() {
+    printf "Starting UAC2 router: "
+
+    # Wait for UAC2 gadget to be ready
+    for i in 1 2 3 4 5; do
+        if [ -d /sys/class/u_audio ]; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ ! -d /sys/class/u_audio ]; then
+        echo "FAIL (UAC2 device not found)"
+        return 1
+    fi
+
+    start-stop-daemon -S -q -b -m -p $PIDFILE --exec $DAEMON
+    if [ $? = 0 ]; then
+        echo "OK"
+    else
+        echo "FAIL"
+    fi
+}
+
+stop() {
+    printf "Stopping UAC2 router: "
+    start-stop-daemon -K -q -p $PIDFILE
+    if [ $? = 0 ]; then
+        rm -f $PIDFILE
+        echo "OK"
+    else
+        echo "FAIL"
+    fi
+}
+
+restart() {
+    stop
+    sleep 1
+    start
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit $?

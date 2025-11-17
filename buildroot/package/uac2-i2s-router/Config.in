@@ -1,0 +1,5 @@
+config BR2_PACKAGE_UAC2_I2S_ROUTER
+	bool "uac2-i2s-router"
+	select BR2_PACKAGE_ALSA_LIB
+	help
+	  UAC2 to I2S audio routing daemon
