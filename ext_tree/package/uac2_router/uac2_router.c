@@ -369,7 +369,17 @@ int main(void) {
                 /* Timeout - это нормально, продолжаем */
                 continue;
             }
-            /* Ошибка */
+            /* Ошибка - добавляем задержку чтобы избежать busy loop */
+            if (err == -EPIPE) {
+                /* XRUN - попробуем восстановить */
+                fprintf(stderr, "[WARN] snd_pcm_wait: XRUN, recovering...\n");
+                snd_pcm_prepare(pcm_capture);
+                snd_pcm_prepare(pcm_playback);
+            } else {
+                /* Другая ошибка - логируем и делаем задержку */
+                fprintf(stderr, "[ERROR] snd_pcm_wait failed: %s (%d)\n", snd_strerror(err), err);
+                usleep(10000);  /* 10ms - предотвращает tight loop */
+            }
             continue;
         }
 
