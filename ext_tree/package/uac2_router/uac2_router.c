@@ -135,8 +135,17 @@ static int setup_pcm(snd_pcm_t **pcm, const char *device, snd_pcm_stream_t strea
     snd_pcm_hw_params_t *hw_params;
     snd_pcm_sw_params_t *sw_params;
     int err;
+    /* Адаптивный размер периода: больше для высоких частот (DSD) */
     snd_pcm_uframes_t period_size = PERIOD_FRAMES;
-    snd_pcm_uframes_t buffer_size = PERIOD_FRAMES * 4;
+    if (rate >= DSD64_RATE) {
+        /* DSD rates: увеличиваем период чтобы избежать слишком коротких интервалов
+         * DSD64:  2.8MHz → 2048 frames = 0.7ms
+         * DSD128: 5.6MHz → 4096 frames = 0.7ms
+         * DSD256: 11.2MHz → 8192 frames = 0.7ms
+         * DSD512: 22.5MHz → 16384 frames = 0.7ms */
+        period_size = (rate / DSD64_RATE) * 2048;
+    }
+    snd_pcm_uframes_t buffer_size = period_size * 4;
 
     if ((err = snd_pcm_open(pcm, device, stream, 0)) < 0) {
         fprintf(stderr, "Cannot open %s: %s\n", device, snd_strerror(err));
