@@ -43,6 +43,13 @@ static char uac_card_name[64] = "";
 static int consecutive_errors = 0;
 #define MAX_CONSECUTIVE_ERRORS 50  /* После 50 ошибок подряд (~0.5 сек) - переоткрыть PCM */
 
+/* Volume synchronization */
+static snd_mixer_t *uac2_mixer = NULL;
+static snd_mixer_t *i2s_mixer = NULL;
+static snd_mixer_elem_t *uac2_volume_elem = NULL;
+static snd_mixer_elem_t *i2s_volume_elem = NULL;
+static long last_uac2_volume = -1;
+
 static void sighandler(int sig) {
     running = 0;
 }
@@ -61,6 +68,100 @@ static const char* get_dsd_name(unsigned int rate) {
         case DSD256_RATE: return "DSD256";
         case DSD512_RATE: return "DSD512";
         default: return "Unknown";
+    }
+}
+
+/* Инициализация volume sync: открыть mixers для UAC2 и I2S */
+static int init_volume_sync(void) {
+    snd_mixer_selem_id_t *sid;
+
+    /* Open UAC2 mixer */
+    if (snd_mixer_open(&uac2_mixer, 0) < 0) {
+        fprintf(stderr, "[VOLUME] Cannot open UAC2 mixer\n");
+        return -1;
+    }
+    if (snd_mixer_attach(uac2_mixer, "hw:1") < 0) {
+        fprintf(stderr, "[VOLUME] Cannot attach UAC2 mixer\n");
+        snd_mixer_close(uac2_mixer);
+        uac2_mixer = NULL;
+        return -1;
+    }
+    if (snd_mixer_selem_register(uac2_mixer, NULL, NULL) < 0 ||
+        snd_mixer_load(uac2_mixer) < 0) {
+        fprintf(stderr, "[VOLUME] Cannot load UAC2 mixer\n");
+        snd_mixer_close(uac2_mixer);
+        uac2_mixer = NULL;
+        return -1;
+    }
+
+    /* Open I2S mixer */
+    if (snd_mixer_open(&i2s_mixer, 0) < 0) {
+        fprintf(stderr, "[VOLUME] Cannot open I2S mixer\n");
+        return -1;
+    }
+    if (snd_mixer_attach(i2s_mixer, "hw:0") < 0) {
+        fprintf(stderr, "[VOLUME] Cannot attach I2S mixer\n");
+        snd_mixer_close(i2s_mixer);
+        i2s_mixer = NULL;
+        return -1;
+    }
+    if (snd_mixer_selem_register(i2s_mixer, NULL, NULL) < 0 ||
+        snd_mixer_load(i2s_mixer) < 0) {
+        fprintf(stderr, "[VOLUME] Cannot load I2S mixer\n");
+        snd_mixer_close(i2s_mixer);
+        i2s_mixer = NULL;
+        return -1;
+    }
+
+    /* Find PCM elements */
+    snd_mixer_selem_id_alloca(&sid);
+    snd_mixer_selem_id_set_index(sid, 0);
+    snd_mixer_selem_id_set_name(sid, "PCM");
+
+    uac2_volume_elem = snd_mixer_find_selem(uac2_mixer, sid);
+    i2s_volume_elem = snd_mixer_find_selem(i2s_mixer, sid);
+
+    if (!uac2_volume_elem || !i2s_volume_elem) {
+        fprintf(stderr, "[VOLUME] Cannot find PCM elements\n");
+        return -1;
+    }
+
+    printf("[VOLUME] Volume sync initialized: UAC2 (hw:1) ↔ I2S (hw:0)\n");
+    return 0;
+}
+
+/* Синхронизировать volume: читать UAC2, применять к I2S */
+static void sync_volume(void) {
+    long uac2_vol, i2s_vol;
+    int uac2_mute, i2s_mute;
+
+    if (!uac2_volume_elem || !i2s_volume_elem)
+        return;
+
+    /* Читать UAC2 volume и mute */
+    snd_mixer_selem_get_capture_volume(uac2_volume_elem, SND_MIXER_SCHN_MONO, &uac2_vol);
+    snd_mixer_selem_get_capture_switch(uac2_volume_elem, SND_MIXER_SCHN_MONO, &uac2_mute);
+
+    /* Только если изменилось */
+    if (uac2_vol != last_uac2_volume) {
+        /* Применить к I2S */
+        snd_mixer_selem_set_playback_volume_all(i2s_volume_elem, uac2_vol);
+        snd_mixer_selem_set_playback_switch_all(i2s_volume_elem, uac2_mute);
+
+        last_uac2_volume = uac2_vol;
+        printf("[VOLUME] Synced: %ld%% %s\n", uac2_vol, uac2_mute ? "ON" : "MUTE");
+    }
+}
+
+/* Закрыть mixers */
+static void close_mixers(void) {
+    if (uac2_mixer) {
+        snd_mixer_close(uac2_mixer);
+        uac2_mixer = NULL;
+    }
+    if (i2s_mixer) {
+        snd_mixer_close(i2s_mixer);
+        i2s_mixer = NULL;
     }
 }
 
@@ -345,6 +446,9 @@ int main(void) {
         }
     }
 
+    /* Инициализировать volume sync */
+    init_volume_sync();
+
     /* Основной цикл */
     while (running) {
         /* Неблокирующая проверка uevent (MSG_DONTWAIT очень быстрый если нет события) */
@@ -467,6 +571,9 @@ int main(void) {
                 }
                 continue;
             }
+
+            /* Синхронизировать volume после успешной передачи */
+            sync_volume();
         }
     }
 
@@ -478,6 +585,7 @@ int main(void) {
         free(buffer);
 
     close_pcms();
+    close_mixers();
 
     printf("\n═══════════════════════════════════════════════════════════\n");
     printf("  UAC2 -> I2S Router stopped\n");
