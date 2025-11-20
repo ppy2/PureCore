@@ -1,7 +1,18 @@
 #!/bin/sh
 
-# XingCore UAC2 Gadget Auto-start Script
+# XingCore UAC2 Gadget Auto-start Script - ПОЛНАЯ ЭМУЛЯЦИЯ
 # Запускается последним в автозагрузке
+#
+# ЭМУЛИРОВАНО через configfs:
+# ✓ Device Qualifier: 0x00/0x00/0x00
+# ✓ Self-powered, 100mA
+# ✓ Минимальные string descriptors
+# ✓ iConfiguration = 0x00, iFunction = 0x00
+#
+# ТРЕБУЮТ ПАТЧЕЙ ЯДРА (f_uac2.c):
+# ✗ HIGH BANDWIDTH mode (2x800 vs 1x808) - line 786-827
+# ✗ Lock Delay (0x02, 0x0800) - нужны configfs атрибуты
+# ✗ Вторая vendor-specific конфигурация
 
 start() {
     echo "Starting XingCore UAC2 gadget..."
@@ -32,20 +43,22 @@ start() {
     mkdir -p xingcore
     cd xingcore
 
-    # Device Descriptor (XingCore clone)
+    # Device Descriptor (XingCore clone - полная эмуляция)
     echo 0x152a > idVendor
     echo 0x8852 > idProduct
     echo 0x0312 > bcdDevice
     echo 0x0200 > bcdUSB
-    echo 0xEF > bDeviceClass
-    echo 0x02 > bDeviceSubClass
-    echo 0x01 > bDeviceProtocol
+    # Device Qualifier: 0x00/0x00/0x00 как в оригинале
+    echo 0x00 > bDeviceClass
+    echo 0x00 > bDeviceSubClass
+    echo 0x00 > bDeviceProtocol
     echo 64 > bMaxPacketSize0
 
-    # Device Strings
+    # Device Strings - минимальные как в оригинале
     mkdir -p strings/0x409
     echo "XingCore" > strings/0x409/manufacturer
     echo "XingCore USB Hi-Resolution Audio" > strings/0x409/product
+    # Serial number = 0x00 (пустой) как в оригинале
     echo "" > strings/0x409/serialnumber
 
     # UAC2 Function
@@ -63,18 +76,23 @@ start() {
     echo 1 > functions/uac2.0/c_volume_present
     echo 1 > functions/uac2.0/c_hs_bint  # bInterval=1 как в оригинальном XingCore
 
-    # Оптимизированные буферы для Roon и равномерной CPU нагрузки
-    echo 12 > functions/uac2.0/req_number   # Компромисс между Roon и CPU нагрузкой
-    echo 50 > functions/uac2.0/fb_max      # Больший feedback bandwidth для async
+    # Оптимизированные буферы для Roon WASAPI совместимости
+    echo 16 > functions/uac2.0/req_number   # Больше USB request буферов (critical for Roon!)
+    # XingCore emulation: fb_max=1083 даёт ТОЧНО 2x800 HIGH BANDWIDTH = 0x0B20
+    echo 1083 > functions/uac2.0/fb_max      # Async overhead для HIGH BANDWIDTH
 
     # No playback (we use capture path for playback)
     echo 0 > functions/uac2.0/p_chmask
-    echo "XingCore USB Audio" > functions/uac2.0/function_name
+    # Function name = пустая (0x00) как в оригинале
 
-    # Configuration
-    mkdir -p configs/c.1/strings/0x409
-    echo "Config 1: XingCore Audio" > configs/c.1/strings/0x409/configuration
-    echo 500 > configs/c.1/MaxPower
+    # Configuration - Self-powered как в оригинале
+    mkdir -p configs/c.1
+    # Self-powered: bmAttributes = 0xC0 (bit 7=1, bit 6=1)
+    echo 0xC0 > configs/c.1/bmAttributes
+    # MaxPower = 100mA (0x32) как в оригинале
+    echo 100 > configs/c.1/MaxPower
+    # Убираем строки конфигурации (iConfiguration = 0x00)
+    # mkdir -p configs/c.1/strings/0x409  # НЕ создаём!
     ln -s functions/uac2.0 configs/c.1/
 
     # Enable gadget

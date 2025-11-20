@@ -85,7 +85,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-i
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-17 08:30:34.311869281 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-20 18:07:33.968929355 +0300
 @@ -29,10 +29,10 @@
   *  controlled by two clock sources :
   *    CLK_5 := c_srate, and CLK_6 := p_srate
@@ -291,7 +291,28 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  /* STD AS ISO OUT Endpoint */
  static struct usb_endpoint_descriptor fs_epout_desc = {
  	.bLength = USB_DT_ENDPOINT_SIZE,
-@@ -533,6 +590,7 @@
+@@ -380,7 +437,7 @@
+ 	/* wBytesPerInterval = DYNAMIC */
+ };
+ 
+-/* CS AS ISO OUT Endpoint */
++/* CS AS ISO OUT Endpoint - XingCore emulation */
+ static struct uac2_iso_endpoint_descriptor as_iso_out_desc = {
+ 	.bLength = sizeof as_iso_out_desc,
+ 	.bDescriptorType = USB_DT_CS_ENDPOINT,
+@@ -388,8 +445,9 @@
+ 	.bDescriptorSubtype = UAC_EP_GENERAL,
+ 	.bmAttributes = 0,
+ 	.bmControls = 0,
+-	.bLockDelayUnits = 0,
+-	.wLockDelay = 0,
++	/* XingCore: bLockDelayUnits=0x02 (decoded PCM samples), wLockDelay=0x0800 (2048) */
++	.bLockDelayUnits = 2,
++	.wLockDelay = cpu_to_le16(0x0800),
+ };
+ 
+ /* STD AS ISO IN Feedback Endpoint */
+@@ -533,6 +591,7 @@
  	(struct usb_descriptor_header *)&ac_hdr_desc,
  	(struct usb_descriptor_header *)&in_clk_src_desc,
  	(struct usb_descriptor_header *)&out_clk_src_desc,
@@ -299,7 +320,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&usb_out_it_desc,
  	(struct usb_descriptor_header *)&out_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -540,8 +598,6 @@
+@@ -540,8 +599,6 @@
  	(struct usb_descriptor_header *)&in_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_out_ot_desc,
  
@@ -308,7 +329,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&std_as_out_if0_desc,
  	(struct usb_descriptor_header *)&std_as_out_if1_desc,
  
-@@ -568,6 +624,7 @@
+@@ -568,6 +625,7 @@
  	(struct usb_descriptor_header *)&ac_hdr_desc,
  	(struct usb_descriptor_header *)&in_clk_src_desc,
  	(struct usb_descriptor_header *)&out_clk_src_desc,
@@ -316,7 +337,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&usb_out_it_desc,
  	(struct usb_descriptor_header *)&out_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -575,8 +632,6 @@
+@@ -575,8 +633,6 @@
  	(struct usb_descriptor_header *)&in_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_out_ot_desc,
  
@@ -325,7 +346,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&std_as_out_if0_desc,
  	(struct usb_descriptor_header *)&std_as_out_if1_desc,
  
-@@ -603,6 +658,7 @@
+@@ -603,6 +659,7 @@
  	(struct usb_descriptor_header *)&ac_hdr_desc,
  	(struct usb_descriptor_header *)&in_clk_src_desc,
  	(struct usb_descriptor_header *)&out_clk_src_desc,
@@ -333,7 +354,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&usb_out_it_desc,
    (struct usb_descriptor_header *)&out_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -610,9 +666,6 @@
+@@ -610,9 +667,6 @@
  	(struct usb_descriptor_header *)&in_feature_unit_desc,
  	(struct usb_descriptor_header *)&io_out_ot_desc,
  
@@ -343,7 +364,86 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	(struct usb_descriptor_header *)&std_as_out_if0_desc,
  	(struct usb_descriptor_header *)&std_as_out_if1_desc,
  
-@@ -846,6 +899,7 @@
+@@ -730,7 +784,8 @@
+ 
+ 	case USB_SPEED_HIGH:
+ 	case USB_SPEED_SUPER:
+-		max_size_ep = 1024;
++		/* HIGH BANDWIDTH mode: allow up to 3x1024 = 3072 bytes */
++		max_size_ep = 3072;
+ 		if (is_playback)
+ 			opts_bint = uac2_opts->p_hs_bint;
+ 		else
+@@ -760,18 +815,59 @@
+ 	else
+ 		dir = "Capture";
+ 
+-	if (max_size_bw <= max_size_ep)
+-		dev_dbg(dev,
+-			"%s %s: Would use wMaxPacketSize %d and bInterval %d\n",
+-			speed_names[speed], dir, max_size_bw, bint);
++	/* HIGH BANDWIDTH encoding ONLY for HS/SS (XingCore emulation) */
++	u16 wMaxPacketSize;
++	u16 mult = 0;  /* multiplier-1: 0=1x, 1=2x, 2=3x */
++	u16 pkt_size;
++
++	/* Full Speed: No HIGH BANDWIDTH, cap at 1023 */
++	if (speed == USB_SPEED_FULL) {
++		if (max_size_bw > max_size_ep) {
++			dev_warn(dev, "%s %s: Req. %d bytes > FS max %d, capping!\n",
++				 speed_names[speed], dir, max_size_bw, max_size_ep);
++			max_size_bw = max_size_ep;
++		}
++		wMaxPacketSize = max_size_bw;
++		dev_dbg(dev, "%s %s: wMaxPacketSize=%u bInterval=%d\n",
++			speed_names[speed], dir, wMaxPacketSize, bint);
++	}
++	/* High/Super Speed: HIGH BANDWIDTH encoding */
+ 	else {
+-		dev_warn(dev,
+-			"%s %s: Req. wMaxPacketSize %d at bInterval %d > max ISOC %d, may drop data!\n",
+-			speed_names[speed], dir, max_size_bw, bint, max_size_ep);
+-		max_size_bw = max_size_ep;
++		if (max_size_bw <= max_size_ep) {
++			/* Calculate multiplier and packet size */
++			if (max_size_bw <= 1024) {
++				/* Single transaction per microframe */
++				mult = 0;
++				pkt_size = max_size_bw;
++			} else if (max_size_bw <= 2048) {
++				/* 2 transactions per microframe (HIGH BANDWIDTH) */
++				mult = 1;
++				pkt_size = (max_size_bw + 1) / 2;  /* round up */
++			} else {
++				/* 3 transactions per microframe (HIGH BANDWIDTH) */
++				mult = 2;
++				pkt_size = (max_size_bw + 2) / 3;  /* round up */
++			}
++
++			/* Encode: bits[10:0]=size, bits[12:11]=mult */
++			wMaxPacketSize = pkt_size | (mult << 11);
++
++			dev_info(dev,
++				"%s %s: wMaxPacketSize=0x%04X (%ux%u=%u bytes) bInterval=%d\n",
++				speed_names[speed], dir, wMaxPacketSize, mult+1, pkt_size,
++				pkt_size * (mult+1), bint);
++		} else {
++			dev_warn(dev,
++				"%s %s: Req. wMaxPacketSize %d at bInterval %d > max %d, capping!\n",
++				speed_names[speed], dir, max_size_bw, bint, max_size_ep);
++			/* Cap to 3x1024 */
++			mult = 2;
++			pkt_size = 1024;
++			wMaxPacketSize = pkt_size | (mult << 11);
++		}
+ 	}
+ 
+-	ep_desc->wMaxPacketSize = cpu_to_le16(max_size_bw);
++	ep_desc->wMaxPacketSize = cpu_to_le16(wMaxPacketSize);
+ 	ep_desc->bInterval = bint;
+ 
+ 	return 0;
+@@ -846,6 +942,7 @@
  		headers[i++] = USBDHDR(&in_clk_src_desc);
  	if (EPOUT_EN(opts)) {
  		headers[i++] = USBDHDR(&out_clk_src_desc);
@@ -351,7 +451,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  		headers[i++] = USBDHDR(&usb_out_it_desc);
  
  		if (FUOUT_EN(opts))
-@@ -864,11 +918,7 @@
+@@ -864,11 +961,7 @@
  	if (EPOUT_EN(opts))
  		headers[i++] = USBDHDR(&io_out_ot_desc);
  
@@ -364,7 +464,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  
  	if (EPOUT_EN(opts)) {
  		headers[i++] = USBDHDR(&std_as_out_if0_desc);
-@@ -886,6 +936,22 @@
+@@ -886,6 +979,22 @@
  			if (epin_fback_desc_comp)
  				headers[i++] = USBDHDR(epin_fback_desc_comp);
  		}
@@ -387,7 +487,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	}
  
  	if (EPIN_EN(opts)) {
-@@ -904,27 +970,31 @@
+@@ -904,27 +1013,31 @@
  
  static void setup_descriptor(struct f_uac2_opts *opts)
  {
@@ -437,7 +537,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  
  	if (FUIN_EN(opts)) {
  		usb_in_ot_desc.bSourceID = in_feature_unit_desc->bUnitID;
-@@ -935,7 +1005,7 @@
+@@ -935,7 +1048,7 @@
  
  	usb_in_ot_desc.bCSourceID = in_clk_src_desc.bClockID;
  	io_in_it_desc.bCSourceID = in_clk_src_desc.bClockID;
@@ -446,7 +546,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  
  	if (FUOUT_EN(opts)) {
  		io_out_ot_desc.bSourceID = out_feature_unit_desc->bUnitID;
-@@ -945,9 +1015,10 @@
+@@ -945,9 +1058,10 @@
  	}
  
  	as_out_hdr_desc.bTerminalLink = usb_out_it_desc.bTerminalID;
@@ -458,7 +558,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	ac_hdr_desc.wTotalLength = cpu_to_le16(sizeof(ac_hdr_desc));
  
  	if (EPIN_EN(opts)) {
-@@ -961,12 +1032,13 @@
+@@ -961,12 +1075,13 @@
  
  		len += sizeof(io_in_it_desc);
  		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
@@ -473,7 +573,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  		len += sizeof(usb_out_it_desc);
  
  		if (FUOUT_EN(opts))
-@@ -974,7 +1046,7 @@
+@@ -974,7 +1089,7 @@
  
  		len += sizeof(io_out_ot_desc);
  		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
@@ -482,7 +582,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	}
  
  	setup_headers(opts, fs_audio_desc, USB_SPEED_FULL);
-@@ -1091,26 +1163,39 @@
+@@ -1091,26 +1206,39 @@
  
  	/* Initialize the configurable parameters */
  	usb_out_it_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
@@ -526,7 +626,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  	}
  	if (FUIN_EN(uac2_opts)) {
  		__le32 *bma = (__le32 *)&in_feature_unit_desc->bmaControls[0];
-@@ -1142,7 +1227,9 @@
+@@ -1142,7 +1270,9 @@
  		}
  		std_as_out_if0_desc.bInterfaceNumber = ret;
  		std_as_out_if1_desc.bInterfaceNumber = ret;
@@ -536,7 +636,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  		uac2->as_out_intf = ret;
  		uac2->as_out_alt = 0;
  
-@@ -1154,6 +1241,7 @@
+@@ -1154,6 +1284,7 @@
  			ss_epout_desc.bmAttributes =
  			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC;
  			std_as_out_if1_desc.bNumEndpoints++;
@@ -544,7 +644,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.
  		} else {
  			fs_epout_desc.bmAttributes =
  			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE;
-@@ -1176,16 +1264,7 @@
+@@ -1176,16 +1307,7 @@
  		uac2->as_in_alt = 0;
  	}
  
@@ -1002,7 +1102,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linu
  };
 diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-17 08:30:34.315869378 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-17 20:16:51.398373904 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver

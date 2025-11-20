@@ -49,6 +49,7 @@ static snd_mixer_t *i2s_mixer = NULL;
 static snd_mixer_elem_t *uac2_volume_elem = NULL;
 static snd_mixer_elem_t *i2s_volume_elem = NULL;
 static long last_uac2_volume = -1;
+static int last_uac2_mute = -1;
 
 static void sighandler(int sig) {
     running = 0;
@@ -138,17 +139,21 @@ static void sync_volume(void) {
     if (!uac2_volume_elem || !i2s_volume_elem)
         return;
 
+    /* Обновить mixer state перед чтением (критично!) */
+    snd_mixer_handle_events(uac2_mixer);
+
     /* Читать UAC2 volume и mute */
     snd_mixer_selem_get_capture_volume(uac2_volume_elem, SND_MIXER_SCHN_MONO, &uac2_vol);
     snd_mixer_selem_get_capture_switch(uac2_volume_elem, SND_MIXER_SCHN_MONO, &uac2_mute);
 
-    /* Только если изменилось */
-    if (uac2_vol != last_uac2_volume) {
+    /* Только если изменилось (проверяем И volume И mute) */
+    if (uac2_vol != last_uac2_volume || uac2_mute != last_uac2_mute) {
         /* Применить к I2S */
         snd_mixer_selem_set_playback_volume_all(i2s_volume_elem, uac2_vol);
         snd_mixer_selem_set_playback_switch_all(i2s_volume_elem, uac2_mute);
 
         last_uac2_volume = uac2_vol;
+        last_uac2_mute = uac2_mute;
         printf("[VOLUME] Synced: %ld%% %s\n", uac2_vol, uac2_mute ? "ON" : "MUTE");
     }
 }
@@ -571,10 +576,10 @@ int main(void) {
                 }
                 continue;
             }
-
-            /* Синхронизировать volume после успешной передачи */
-            sync_volume();
         }
+
+        /* Синхронизировать volume в каждой итерации (независимо от аудио) */
+        sync_volume();
     }
 
     /* Cleanup */
