@@ -10,26 +10,36 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 
 ## Branches
 
-### `pcm-standard` (Main Branch)
-Standard UAC2 implementation for maximum compatibility.
+**Recommendation:** Use `pcm-standard` (universal branch) for all use cases. The `dsd-thesycon` branch is kept for reference.
+
+### `pcm-standard` (Main Branch) - **UNIVERSAL** ⭐
+Standard UAC2 with Alt Setting 2 for native DSD support on Linux and Thesycon drivers.
 
 **Supported Modes:**
 
 | Mode | Driver | Windows API | Formats | Status |
 |------|--------|-------------|---------|--------|
 | **Without Drivers** | Windows USB Audio 2.0 (built-in) | WASAPI | PCM 44.1-768 kHz | ✅ Working |
-| **With Thesycon Drivers** | XingCore ASIO | WASAPI/ASIO | PCM 44.1-768 kHz | ✅ Working |
-| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM 44.1-768 kHz | ✅ Working |
+| **With Thesycon Drivers** | XingCore ASIO | WASAPI/ASIO | PCM + DSD64-512 | ✅ Testing needed |
+| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
+
+**DSD Support:**
+- DSD64: 2.8224 MHz
+- DSD128: 5.6448 MHz
+- DSD256: 11.2896 MHz
+- DSD512: 22.5792 MHz
 
 **Features:**
 - ✅ Works without driver installation (Windows 10+)
-- ✅ Standard WASAPI support
-- ✅ Compatible with Thesycon drivers (PCM only)
-- ✅ Volume controls enabled
-- ✅ Full Linux compatibility
+- ✅ Standard WASAPI support for PCM
+- ✅ Linux native DSD via Alt Setting 2 (kernel quirk: QUIRK_FLAG_DSD_RAW)
+- ✅ Thesycon ASIO DSD support (requires testing)
+- ✅ Volume controls enabled (PCM compatible)
+- ✅ Universal compatibility across all platforms
 
 **Limitations:**
-- ❌ No native DSD support
+- ⚠️ Windows without drivers: PCM only (ignores Alt Setting 2 with DSD)
+- ⚠️ Thesycon DSD support needs verification
 
 ---
 
@@ -43,7 +53,7 @@ Extended UAC2 with native DSD support via Alt Setting 2.
 | **Without Drivers** | N/A | N/A | N/A | ❌ Not working |
 | **With Thesycon Drivers** | XingCore ASIO | ASIO | PCM + DSD64-512 | ✅ Working |
 | **Future libusbK Driver** | Custom ASIO | ASIO | PCM + DSD64-512 | 🚧 Planned |
-| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM 44.1-768 kHz | ✅ Working (PCM only) |
+| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
 
 **DSD Support:**
 - DSD64: 2.8224 MHz
