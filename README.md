@@ -73,27 +73,6 @@ Extended UAC2 with native DSD support via Alt Setting 2.
 
 ---
 
-## Quick Start
-
-### Building & Flashing
-
-**For standard operation (pcm-standard branch):**
-```bash
-git checkout pcm-standard
-cd /opt/PureFox/buildroot
-make
-cat output/images/boot.img | sshpass -p purefox ssh root@192.168.1.192 \
-  "cat > /tmp/boot.img && dd if=/tmp/boot.img of=/dev/mtdblock3 bs=1M && sync && reboot"
-```
-
-**For DSD support (dsd-thesycon branch):**
-```bash
-git checkout dsd-thesycon
-cd /opt/PureFox/buildroot
-make
-cat output/images/boot.img | sshpass -p purefox ssh root@192.168.1.192 \
-  "cat > /tmp/boot.img && dd if=/tmp/boot.img of=/dev/mtdblock3 bs=1M && sync && reboot"
-```
 
 ### Windows Driver Installation
 
@@ -112,49 +91,3 @@ cat output/images/boot.img | sshpass -p purefox ssh root@192.168.1.192 \
 
 ---
 
-## Network Access
-
-**Device IP:** `192.168.1.192`
-**SSH Access:** `ssh root@192.168.1.192` (password: `purefox`)
-**SSH Port:** 22
-
----
-
-## Architecture
-
-```
-Windows WASAPI/ASIO
-        │
-        ▼ (USB 2.0 High-Speed)
-   UAC2 Gadget (hw:1,0)
-        │
-        ▼ (kobject_uevent on rate change)
-   uac2_router daemon
-        │
-        ▼ (ALSA copy + resample)
-   I2S DAC (hw:0,0)
-```
-
-**Key Components:**
-- **f_uac2.c**: Linux USB gadget driver with UAC2 support
-- **uac2_router**: Userspace daemon for audio routing and rate conversion
-- **rockchip_i2s_tdm.c**: I2S driver with DSD support
-
----
-
-## Documentation
-
-- **[CLAUDE.md](CLAUDE.md)**: Detailed technical documentation and development guide
-- **[ext_tree/package/uac2_router/README.md](ext_tree/package/uac2_router/README.md)**: Audio routing architecture
-
----
-
-## License
-
-This project combines multiple components with different licenses. See individual source files for details.
-
----
-
-## Credits
-
-🤖 Developed with [Claude Code](https://claude.com/claude-code)
