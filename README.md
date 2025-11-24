@@ -12,7 +12,6 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 
 **Recommendation:** Use `pcm-standard` (universal branch) for all use cases. The `dsd-thesycon` branch is kept for reference.
 
-### `pcm-standard` (Main Branch) - **UNIVERSAL** ⭐
 Standard UAC2 with Alt Setting 2 for native DSD support on Linux and Thesycon drivers.
 
 **Supported Modes:**
