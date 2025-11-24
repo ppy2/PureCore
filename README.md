@@ -8,12 +8,6 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 - **Audio Output**: I2S DAC
 - **Max Sample Rate**: 768 kHz / 32-bit
 
-## Branches
-
-**Recommendation:** Use `pcm-standard` (universal branch) for all use cases. The `dsd-thesycon` branch is kept for reference.
-
-Standard UAC2 with Alt Setting 2 for native DSD support on Linux and Thesycon drivers.
-
 **Supported Modes:**
 
 | Mode | Driver | Windows API | Formats | Status |
