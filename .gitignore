@@ -13,5 +13,8 @@ buildroot/*.diff
 *.pyc
 .claude
 .qoder
+./*.md
+original.txt
+
 
 

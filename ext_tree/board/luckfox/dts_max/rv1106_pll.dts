@@ -72,7 +72,7 @@
 /**********USB**********/
 &usbdrd_dwc3 {
 	status = "okay";
-	dr_mode = "host";
+	dr_mode = "peripheral";
 };
 
 /**********I2C**********/

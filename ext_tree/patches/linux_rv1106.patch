@@ -1,4 +1,161 @@
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-inno-usb2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/phy/rockchip/phy-rockchip-inno-usb2.c
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/arch/arm/boot/dts/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/arch/arm/boot/dts/Makefile
+--- linux-rockchip-rk-6.1-rkr6.1_orig/arch/arm/boot/dts/Makefile	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/arch/arm/boot/dts/Makefile	2025-11-22 22:03:36.598796410 +0300
+@@ -1122,152 +1122,7 @@
+ 	r9a06g032-rzn1d400-db.dtb \
+ 	sh73a0-kzm9g.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
+-	rv1103g-38x38-ipc-v10.dtb \
+-	rv1103g-battery-ipc-v10.dtb \
+-	rv1103g-battery-ipc-v11.dtb \
+-	rv1103g-evb-mcu-display-v11.dtb \
+-	rv1103g-evb-v10.dtb \
+-	rv1103g-evb-v11.dtb \
+-	rv1103g-evb-v11-sii902x-bt6562hdmi.dtb \
+-	rv1103g-evb2-v10.dtb \
+-	rv1103g-rmsl311-dloc-sl-v10.dtb \
+-	rv1103g-scaner-v10.dtb \
+-	rv1106g-38x38-ipc-v10.dtb \
+-	rv1106g-38x38-ipc-v10-spi-nand.dtb \
+-	rv1106g-evb1-mcu-display-v11.dtb \
+-	rv1106g-evb1-mcu-display-v20.dtb \
+-	rv1106g-evb1-rgb-display-v11.dtb \
+-	rv1106g-evb1-v10.dtb \
+-	rv1106g-evb1-v10-dual-cam.dtb \
+-	rv1106g-evb1-v10-facial-gate.dtb \
+-	rv1106g-evb1-v10-spi-nand.dtb \
+-	rv1106g-evb1-v10-spi-nor.dtb \
+-	rv1106g-evb1-v11.dtb \
+-	rv1106g-evb1-v11-4k.dtb \
+-	rv1106g-evb1-v11-cvr.dtb \
+-	rv1106g-evb1-v11-cvr-dual-cam.dtb \
+-	rv1106g-evb1-v11-cvr-ext-dual-cam.dtb \
+-	rv1106g-evb1-v11-dual-cam.dtb \
+-	rv1106g-evb1-v11-facial-gate.dtb \
+-	rv1106g-evb1-v11-nofastae-spi-nand.dtb \
+-	rv1106g-evb1-v11-sii902x-bt11202hdmi.dtb \
+-	rv1106g-evb1-v11-sii902x-rgb2hdmi.dtb \
+-	rv1106g-evb1-v11-spi-nand-cvr.dtb \
+-	rv1106g-evb2-v10.dtb \
+-	rv1106g-evb2-v10-dual-camera.dtb \
+-	rv1106g-evb2-v11-emmc.dtb \
+-	rv1106g-evb2-v11-trailcam-emmc.dtb \
+-	rv1106g-evb2-v12-aov-spi-nor.dtb \
+-	rv1106g-evb2-v12-dual-camera-avs.dtb \
+-	rv1106g-evb2-v12-nofastae-emmc.dtb \
+-	rv1106g-evb2-v12-nofastae-spi-nand.dtb \
+-	rv1106g-evb2-v12-nofastae-spi-nor.dtb \
+-	rv1106g-evb2-v12-spi-nand-tb.dtb \
+-	rv1106g-evb2-v12-wakeup.dtb \
+-	rv1106g-smart-door-lock-rmsl-v10.dtb \
+-	rv1106g-smart-door-lock-rmsl-v12.dtb \
+-	rv1106g-uvc-demo-v10.dtb \
+-	rv1106g-uvc-demo-v10-spi-nor.dtb \
+-	rv1108-elgin-r1.dtb \
+-	rv1108-evb.dtb \
+-	rv1126-evb-ddr3-v10.dtb \
+-	rv1126-evb-ddr3-v12.dtb \
+-	rv1126-evb-ddr3-v12-spi-nand.dtb \
+-	rv1126-evb-ddr3-v12-spi-nor.dtb \
+-	rv1126-evb-ddr3-v13.dtb \
+-	rv1126b-evb1-v10.dtb \
+-	rv1126b-evb1-v10-bt-sco.dtb \
+-	rv1126b-evb1-v10-dual-4k.dtb \
+-	rv1126b-evb1-v10-dv.dtb \
+-	rv1126b-evb1-v10-fastboot-emmc.dtb \
+-	rv1126b-evb1-v10-fastboot-spi-nand.dtb \
+-	rv1126b-evb1-v10-fastboot-spi-nor.dtb \
+-	rv1126b-evb1-v10-spi-nor.dtb \
+-	rv1126b-evb1-v11.dtb \
+-	rv1126b-evb1-v11-dual-4k.dtb \
+-	rv1126b-evb2-v10.dtb \
+-	rv1126b-evb2-v10-mcu-k350c4516t.dtb \
+-	rv1126b-evb2-v10-rgb-Q7050ITH2641AA1T.dtb \
+-	rv1126b-evb2-v10-sii9022-bt1120-to-hdmi.dtb \
+-	rv1126b-evb2-v10-tb-400w.dtb \
+-	rv1126b-evb3-v10.dtb \
+-	rv1126b-evb4-v10.dtb \
+-	rv1126b-iotest-v10.dtb \
+-	rv1126bp-evb-v14.dtb \
+-	rv1126bp-evb-v14-dual-cam.dtb \
+-	rk3036-evb.dtb \
+-	rk3036-evb1-ddr3-v10.dtb \
+-	rk3036-kylin.dtb \
+-	rk3066a-bqcurie2.dtb \
+-	rk3066a-marsboard.dtb \
+-	rk3066a-mk808.dtb \
+-	rk3066a-rayeager.dtb \
+-	rk3126c-evb-ddr3-v10-linux.dtb \
+-	rk3126c-evb-ddr3-v10-linux-slc.dtb \
+-	rk3128-evb-ddr3-v10-linux.dtb \
+-	rk3128-evb-ddr3-v10-linux-spi-nand.dtb \
+-	rk3188-bqedison2qc.dtb \
+-	rk3188-px3-evb.dtb \
+-	rk3188-radxarock.dtb \
+-	rk3228-evb.dtb \
+-	rk3229-evb.dtb \
+-	rk3229-xms6.dtb \
+-	rk3288-evb-act8846.dtb \
+-	rk3288-evb-rk808.dtb \
+-	rk3288-firefly-beta.dtb \
+-	rk3288-firefly.dtb \
+-	rk3288-firefly-reload.dtb \
+-	rk3288-miqi.dtb \
+-	rk3288-phycore-rdk.dtb \
+-	rk3288-popmetal.dtb \
+-	rk3288-r89.dtb \
+-	rk3288-rock2-square.dtb \
+-	rk3288-rock-pi-n8.dtb \
+-	rk3288-tinker.dtb \
+-	rk3288-tinker-s.dtb \
+-	rk3288-veyron-brain.dtb \
+-	rk3288-veyron-fievel.dtb \
+-	rk3288-veyron-jaq.dtb \
+-	rk3288-veyron-jerry.dtb \
+-	rk3288-veyron-mickey.dtb \
+-	rk3288-veyron-mighty.dtb \
+-	rk3288-veyron-minnie.dtb \
+-	rk3288-veyron-pinky.dtb \
+-	rk3288-veyron-speedy.dtb \
+-	rk3288-veyron-tiger.dtb \
+-	rk3288-vyasa.dtb \
+-	rk3308-evb-audio-v10-amp-display-rgb-aarch32.dtb \
+-	rk3308-evb-audio-v10-display-rgb-aarch32.dtb \
+-	rk3308-evb-audio-v11-display-rgb-aarch32.dtb \
+-	rk3308bs-evb-amic-v11-aarch32.dtb \
+-	rk3308bs-evb-dmic-pdm-v11-aarch32.dtb \
+-	rk3308bs-evb-mipi-display-v11-aarch32.dtb \
+-	rk3308hs-voice-module-board-v10-aarch32.dtb \
+-	rk3502g-evb1-v10.dtb \
+-	rk3503g-evb1-v10.dtb \
+-	rk3506b-evb1-v10.dtb \
+-	rk3506b-test2-v10.dtb \
+-	rk3506g-demo-display-control.dtb \
+-	rk3506g-evb1-v10.dtb \
+-	rk3506g-evb1-v10-amp.dtb \
+-	rk3506g-evb1-v10-dsmc-lb-slave.dtb \
+-	rk3506g-evb1-v10-dsmc-master.dtb \
+-	rk3506g-evb1-v10-flexbus-adc-dac.dtb \
+-	rk3506g-evb1-v10-mcu-k350c4516t.dtb \
+-	rk3506g-evb1-v10-rgb-Q7050ITH2641AA1T.dtb \
+-	rk3506g-evb1-v10-sii9022-bt1120-to-hdmi.dtb \
+-	rk3506g-evb1-v10-sii9022-rgb2hdmi.dtb \
+-	rk3506g-evb2-v10.dtb \
+-	rk3506g-iotest-v10.dtb \
+-	rk3506g-iotest-v10-pdm.dtb \
+-	rk3506g-test1-v10-audio.dtb \
+-	rk3518-evb1-ddr4-v10.dtb \
+-	rk3528-demo4-ddr4-v10.dtb \
+-	rk3528-evb1-ddr4-v10.dtb \
+-	rk3528-evb2-ddr3-v10.dtb \
+-	rk3528-evb3-lp4x-v10.dtb \
+-	rk3528-evb4-ddr4-v10.dtb \
+-	rk3562-evb2-ddr4-v10.dtb
++	rv1106_pll.dtb
+ dtb-$(CONFIG_ARCH_S3C24XX) += \
+ 	s3c2416-smdk2416.dtb
+ dtb-$(CONFIG_ARCH_S3C64XX) += \
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-inno-usb2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/phy/rockchip/phy-rockchip-inno-usb2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-inno-usb2.c	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/phy/rockchip/phy-rockchip-inno-usb2.c	2025-11-10 12:55:04.382546340 +0300
 @@ -1047,6 +1047,8 @@
@@ -83,588 +240,202 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockchip/phy-rockchip-i
  
  	/* Bypass Squelch detector calibration */
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-20 18:07:33.968929355 +0300
-@@ -29,10 +29,10 @@
-  *  controlled by two clock sources :
-  *    CLK_5 := c_srate, and CLK_6 := p_srate
-  */
--#define USB_OUT_CLK_ID	(out_clk_src_desc.bClockID)
--#define USB_IN_CLK_ID	(in_clk_src_desc.bClockID)
--#define USB_OUT_FU_ID	(out_feature_unit_desc->bUnitID)
--#define USB_IN_FU_ID	(in_feature_unit_desc->bUnitID)
-+#define USB_OUT_CLK_ID	41  /* XingCore Clock Source ID */
-+#define USB_IN_CLK_ID	(in_clk_src_desc.bClockID)  /* Dynamic for capture */
-+#define USB_OUT_FU_ID	10  /* XingCore Feature Unit ID */
-+#define USB_IN_FU_ID	(in_feature_unit_desc->bUnitID)  /* Dynamic for capture */
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-23 22:49:12.025833405 +0300
+@@ -114,7 +114,7 @@
+ 	[STR_USB_IT].s = "USBH Out",
+ 	[STR_IO_IT].s = "USBD Out",
+ 	[STR_USB_OT].s = "USBH In",
+-	[STR_IO_OT].s = "USBD In",
++	[STR_IO_OT].s = "XingCore",  /* Speaker terminal - shown in Windows */
+ 	[STR_FU_IN].s = "Capture Volume",
+ 	[STR_FU_OUT].s = "Playback Volume",
+ 	[STR_AS_OUT_ALT0].s = "Playback Inactive",
+@@ -987,6 +987,10 @@
+ 	struct f_uac2_opts *opts = g_audio_to_uac2_opts(agdev);
+ 	const char *msg = NULL;
  
- #define CONTROL_ABSENT	0
- #define CONTROL_RDONLY	1
-@@ -149,10 +149,10 @@
- 	.bDescriptorType = USB_DT_INTERFACE_ASSOCIATION,
- 
- 	.bFirstInterface = 0,
--	.bInterfaceCount = 3,
-+	.bInterfaceCount = 2,  /* XingCore has 2 interfaces (Control + Streaming) */
- 	.bFunctionClass = USB_CLASS_AUDIO,
--	.bFunctionSubClass = UAC2_FUNCTION_SUBCLASS_UNDEFINED,
--	.bFunctionProtocol = UAC_VERSION_2,
-+	.bFunctionSubClass = 0,  /* XingCore uses 0x00 */
-+	.bFunctionProtocol = UAC_VERSION_2,  /* 0x20 for UAC2 */
- };
- 
- /* Audio Control Interface */
-@@ -179,72 +179,96 @@
- 	.bAssocTerminal = 0,
- };
- 
--/* Clock source for OUT traffic */
-+/* Clock source for OUT traffic - XingCore compatible */
- static struct uac_clock_source_descriptor out_clk_src_desc = {
- 	.bLength = sizeof out_clk_src_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
- 
- 	.bDescriptorSubtype = UAC2_CLOCK_SOURCE,
- 	/* .bClockID = DYNAMIC */
--	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_FIXED,
--	.bmControls = (CONTROL_RDWR << CLK_FREQ_CTRL),
-+	.bmAttributes = UAC_CLOCK_SOURCE_TYPE_INT_PROG,  /* 0x03 - Internal programmable */
-+	.bmControls = 0x07,  /* XingCore: Clock Frequency + Clock Validity controls */
- 	.bAssocTerminal = 0,
- };
- 
--/* Input Terminal for USB_OUT */
-+/* Clock Selector for XingCore compatibility */
-+/* XingCore: Clock Selector with 1-byte bmControls */
-+struct uac2_clock_selector_descriptor {
-+	__u8 bLength;
-+	__u8 bDescriptorType;
-+	__u8 bDescriptorSubtype;
-+	__u8 bClockID;
-+	__u8 bNrInPins;
-+	__u8 baCSourceID[1];
-+	__u8 bmControls[1];  /* XingCore uses 1 byte, not 2 */
-+	__u8 iClockSelector;
-+} __attribute__((packed));
++	/* DEBUG: Print chmask values at bind time */
++	dev_info(dev, "UAC2 DEBUG: p_chmask=0x%x c_chmask=0x%x\n",
++		 opts->p_chmask, opts->c_chmask);
 +
-+static struct uac2_clock_selector_descriptor out_clk_sel_desc = {
-+	.bLength = 8,  /* XingCore: Fixed size 8 bytes (not sizeof) */
-+	.bDescriptorType = USB_DT_CS_INTERFACE,
-+	.bDescriptorSubtype = UAC2_CLOCK_SELECTOR,
-+	/* .bClockID = DYNAMIC */
-+	.bNrInPins = 1,
-+	.baCSourceID = {0}, /* Will be linked to clock source */
-+	.bmControls = {0x03}, /* XingCore: Only 1 byte for bmControls */
-+	.iClockSelector = 0,
-+};
-+
-+/* Input Terminal for USB_OUT - FOR PLAYBACK: from USB Host */
- static struct uac2_input_terminal_descriptor usb_out_it_desc = {
- 	.bLength = sizeof usb_out_it_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
- 
- 	.bDescriptorSubtype = UAC_INPUT_TERMINAL,
- 	/* .bTerminalID = DYNAMIC */
--	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),
-+	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),  /* 0x0101 USB Streaming */
- 	.bAssocTerminal = 0,
- 	/* .bCSourceID = DYNAMIC */
- 	.iChannelNames = 0,
--	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
-+	.bmControls = 0,  /* XingCore: No controls in IT */
- };
- 
--/* Input Terminal for I/O-In */
-+/* Input Terminal for I/O-In - FOR PLAYBACK when EPIN_EN: from USB (swapped logic!) */
- static struct uac2_input_terminal_descriptor io_in_it_desc = {
- 	.bLength = sizeof io_in_it_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
- 
- 	.bDescriptorSubtype = UAC_INPUT_TERMINAL,
- 	/* .bTerminalID = DYNAMIC */
--	.wTerminalType = cpu_to_le16(UAC_INPUT_TERMINAL_MICROPHONE),
-+	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),  /* 0x0101 USB Streaming - for PLAYBACK */
- 	.bAssocTerminal = 0,
- 	/* .bCSourceID = DYNAMIC */
- 	.iChannelNames = 0,
- 	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
- };
- 
--/* Ouput Terminal for USB_IN */
-+/* Output Terminal for USB_IN - FOR PLAYBACK when EPIN_EN: to Speaker (swapped logic!) */
- static struct uac2_output_terminal_descriptor usb_in_ot_desc = {
- 	.bLength = sizeof usb_in_ot_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
- 
- 	.bDescriptorSubtype = UAC_OUTPUT_TERMINAL,
- 	/* .bTerminalID = DYNAMIC */
--	.wTerminalType = cpu_to_le16(UAC_TERMINAL_STREAMING),
-+	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),  /* 0x0301 Speaker - for PLAYBACK */
- 	.bAssocTerminal = 0,
- 	/* .bSourceID = DYNAMIC */
- 	/* .bCSourceID = DYNAMIC */
--	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
-+	.bmControls = 0,
- };
- 
--/* Ouput Terminal for I/O-Out */
-+/* Output Terminal for I/O-Out - FOR PLAYBACK: to Speaker (0x0301) */
- static struct uac2_output_terminal_descriptor io_out_ot_desc = {
- 	.bLength = sizeof io_out_ot_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
- 
- 	.bDescriptorSubtype = UAC_OUTPUT_TERMINAL,
- 	/* .bTerminalID = DYNAMIC */
--	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),
-+	.wTerminalType = cpu_to_le16(UAC_OUTPUT_TERMINAL_SPEAKER),  /* 0x0301 Speaker */
- 	.bAssocTerminal = 0,
- 	/* .bSourceID = DYNAMIC */
- 	/* .bCSourceID = DYNAMIC */
--	.bmControls = cpu_to_le16(CONTROL_RDWR << COPY_CTRL),
-+	.bmControls = 0,  /* XingCore uses 0x0000 for bmControls */
- };
- 
- static struct uac2_feature_unit_descriptor *in_feature_unit_desc;
-@@ -256,7 +280,7 @@
- 
- 	.bDescriptorSubtype = UAC_MS_HEADER,
- 	.bcdADC = cpu_to_le16(0x200),
--	.bCategory = UAC2_FUNCTION_IO_BOX,
-+	.bCategory = 1,  /* XingCore uses bCategory = 1 */
- 	/* .wTotalLength = DYNAMIC */
- 	.bmControls = 0,
- };
-@@ -321,6 +345,18 @@
- 	.bInterfaceProtocol = UAC_VERSION_2,
- };
- 
-+/* Audio Streaming OUT Interface - Alt2 (XingCore RAW_DATA format) */
-+static struct usb_interface_descriptor std_as_out_if2_desc = {
-+	.bLength = sizeof std_as_out_if2_desc,
-+	.bDescriptorType = USB_DT_INTERFACE,
-+
-+	.bAlternateSetting = 2,
-+	.bNumEndpoints = 1,
-+	.bInterfaceClass = USB_CLASS_AUDIO,
-+	.bInterfaceSubClass = USB_SUBCLASS_AUDIOSTREAMING,
-+	.bInterfaceProtocol = UAC_VERSION_2,
-+};
-+
- /* Audio Stream OUT Intface Desc */
- static struct uac2_as_header_descriptor as_out_hdr_desc = {
- 	.bLength = sizeof as_out_hdr_desc,
-@@ -334,7 +370,20 @@
- 	.iChannelNames = 0,
- };
- 
--/* Audio USB_OUT Format */
-+/* Audio Stream OUT Alt2 Desc (RAW_DATA) */
-+static struct uac2_as_header_descriptor as_out_hdr2_desc = {
-+	.bLength = sizeof as_out_hdr2_desc,
-+	.bDescriptorType = USB_DT_CS_INTERFACE,
-+
-+	.bDescriptorSubtype = UAC_AS_GENERAL,
-+	/* .bTerminalLink = DYNAMIC */
-+	.bmControls = 0,
-+	.bFormatType = UAC_FORMAT_TYPE_I,
-+	.bmFormats = cpu_to_le32(0x80000000),  /* TYPE_I_RAW_DATA */
-+	.iChannelNames = 0,
-+};
-+
-+/* Audio USB_OUT Format Alt1 */
- static struct uac2_format_type_i_descriptor as_out_fmt1_desc = {
- 	.bLength = sizeof as_out_fmt1_desc,
- 	.bDescriptorType = USB_DT_CS_INTERFACE,
-@@ -342,6 +391,14 @@
- 	.bFormatType = UAC_FORMAT_TYPE_I,
- };
- 
-+/* Audio USB_OUT Format Alt2 (RAW_DATA) */
-+static struct uac2_format_type_i_descriptor as_out_fmt2_desc = {
-+	.bLength = sizeof as_out_fmt2_desc,
-+	.bDescriptorType = USB_DT_CS_INTERFACE,
-+	.bDescriptorSubtype = UAC_FORMAT_TYPE,
-+	.bFormatType = UAC_FORMAT_TYPE_I,
-+};
-+
- /* STD AS ISO OUT Endpoint */
- static struct usb_endpoint_descriptor fs_epout_desc = {
- 	.bLength = USB_DT_ENDPOINT_SIZE,
-@@ -380,7 +437,7 @@
- 	/* wBytesPerInterval = DYNAMIC */
- };
- 
--/* CS AS ISO OUT Endpoint */
-+/* CS AS ISO OUT Endpoint - XingCore emulation */
- static struct uac2_iso_endpoint_descriptor as_iso_out_desc = {
- 	.bLength = sizeof as_iso_out_desc,
- 	.bDescriptorType = USB_DT_CS_ENDPOINT,
-@@ -388,8 +445,9 @@
- 	.bDescriptorSubtype = UAC_EP_GENERAL,
- 	.bmAttributes = 0,
- 	.bmControls = 0,
--	.bLockDelayUnits = 0,
--	.wLockDelay = 0,
-+	/* XingCore: bLockDelayUnits=0x02 (decoded PCM samples), wLockDelay=0x0800 (2048) */
-+	.bLockDelayUnits = 2,
-+	.wLockDelay = cpu_to_le16(0x0800),
- };
- 
- /* STD AS ISO IN Feedback Endpoint */
-@@ -533,6 +591,7 @@
- 	(struct usb_descriptor_header *)&ac_hdr_desc,
- 	(struct usb_descriptor_header *)&in_clk_src_desc,
- 	(struct usb_descriptor_header *)&out_clk_src_desc,
-+	(struct usb_descriptor_header *)&out_clk_sel_desc,
- 	(struct usb_descriptor_header *)&usb_out_it_desc,
- 	(struct usb_descriptor_header *)&out_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -540,8 +599,6 @@
- 	(struct usb_descriptor_header *)&in_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_out_ot_desc,
- 
--	(struct usb_descriptor_header *)&fs_ep_int_desc,
--
- 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
- 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
- 
-@@ -568,6 +625,7 @@
- 	(struct usb_descriptor_header *)&ac_hdr_desc,
- 	(struct usb_descriptor_header *)&in_clk_src_desc,
- 	(struct usb_descriptor_header *)&out_clk_src_desc,
-+	(struct usb_descriptor_header *)&out_clk_sel_desc,
- 	(struct usb_descriptor_header *)&usb_out_it_desc,
- 	(struct usb_descriptor_header *)&out_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -575,8 +633,6 @@
- 	(struct usb_descriptor_header *)&in_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_out_ot_desc,
- 
--	(struct usb_descriptor_header *)&hs_ep_int_desc,
--
- 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
- 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
- 
-@@ -603,6 +659,7 @@
- 	(struct usb_descriptor_header *)&ac_hdr_desc,
- 	(struct usb_descriptor_header *)&in_clk_src_desc,
- 	(struct usb_descriptor_header *)&out_clk_src_desc,
-+	(struct usb_descriptor_header *)&out_clk_sel_desc,
- 	(struct usb_descriptor_header *)&usb_out_it_desc,
-   (struct usb_descriptor_header *)&out_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_in_it_desc,
-@@ -610,9 +667,6 @@
- 	(struct usb_descriptor_header *)&in_feature_unit_desc,
- 	(struct usb_descriptor_header *)&io_out_ot_desc,
- 
--	(struct usb_descriptor_header *)&ss_ep_int_desc,
--	(struct usb_descriptor_header *)&ss_ep_int_desc_comp,
--
- 	(struct usb_descriptor_header *)&std_as_out_if0_desc,
- 	(struct usb_descriptor_header *)&std_as_out_if1_desc,
- 
-@@ -730,7 +784,8 @@
- 
- 	case USB_SPEED_HIGH:
- 	case USB_SPEED_SUPER:
--		max_size_ep = 1024;
-+		/* HIGH BANDWIDTH mode: allow up to 3x1024 = 3072 bytes */
-+		max_size_ep = 3072;
- 		if (is_playback)
- 			opts_bint = uac2_opts->p_hs_bint;
- 		else
-@@ -760,18 +815,59 @@
- 	else
- 		dir = "Capture";
- 
--	if (max_size_bw <= max_size_ep)
--		dev_dbg(dev,
--			"%s %s: Would use wMaxPacketSize %d and bInterval %d\n",
--			speed_names[speed], dir, max_size_bw, bint);
-+	/* HIGH BANDWIDTH encoding ONLY for HS/SS (XingCore emulation) */
-+	u16 wMaxPacketSize;
-+	u16 mult = 0;  /* multiplier-1: 0=1x, 1=2x, 2=3x */
-+	u16 pkt_size;
-+
-+	/* Full Speed: No HIGH BANDWIDTH, cap at 1023 */
-+	if (speed == USB_SPEED_FULL) {
-+		if (max_size_bw > max_size_ep) {
-+			dev_warn(dev, "%s %s: Req. %d bytes > FS max %d, capping!\n",
-+				 speed_names[speed], dir, max_size_bw, max_size_ep);
-+			max_size_bw = max_size_ep;
-+		}
-+		wMaxPacketSize = max_size_bw;
-+		dev_dbg(dev, "%s %s: wMaxPacketSize=%u bInterval=%d\n",
-+			speed_names[speed], dir, wMaxPacketSize, bint);
-+	}
-+	/* High/Super Speed: HIGH BANDWIDTH encoding */
- 	else {
--		dev_warn(dev,
--			"%s %s: Req. wMaxPacketSize %d at bInterval %d > max ISOC %d, may drop data!\n",
--			speed_names[speed], dir, max_size_bw, bint, max_size_ep);
--		max_size_bw = max_size_ep;
-+		if (max_size_bw <= max_size_ep) {
-+			/* Calculate multiplier and packet size */
-+			if (max_size_bw <= 1024) {
-+				/* Single transaction per microframe */
-+				mult = 0;
-+				pkt_size = max_size_bw;
-+			} else if (max_size_bw <= 2048) {
-+				/* 2 transactions per microframe (HIGH BANDWIDTH) */
-+				mult = 1;
-+				pkt_size = (max_size_bw + 1) / 2;  /* round up */
-+			} else {
-+				/* 3 transactions per microframe (HIGH BANDWIDTH) */
-+				mult = 2;
-+				pkt_size = (max_size_bw + 2) / 3;  /* round up */
-+			}
-+
-+			/* Encode: bits[10:0]=size, bits[12:11]=mult */
-+			wMaxPacketSize = pkt_size | (mult << 11);
-+
-+			dev_info(dev,
-+				"%s %s: wMaxPacketSize=0x%04X (%ux%u=%u bytes) bInterval=%d\n",
-+				speed_names[speed], dir, wMaxPacketSize, mult+1, pkt_size,
-+				pkt_size * (mult+1), bint);
-+		} else {
-+			dev_warn(dev,
-+				"%s %s: Req. wMaxPacketSize %d at bInterval %d > max %d, capping!\n",
-+				speed_names[speed], dir, max_size_bw, bint, max_size_ep);
-+			/* Cap to 3x1024 */
-+			mult = 2;
-+			pkt_size = 1024;
-+			wMaxPacketSize = pkt_size | (mult << 11);
-+		}
- 	}
- 
--	ep_desc->wMaxPacketSize = cpu_to_le16(max_size_bw);
-+	ep_desc->wMaxPacketSize = cpu_to_le16(wMaxPacketSize);
- 	ep_desc->bInterval = bint;
- 
- 	return 0;
-@@ -846,6 +942,7 @@
- 		headers[i++] = USBDHDR(&in_clk_src_desc);
- 	if (EPOUT_EN(opts)) {
- 		headers[i++] = USBDHDR(&out_clk_src_desc);
-+		headers[i++] = USBDHDR(&out_clk_sel_desc);
- 		headers[i++] = USBDHDR(&usb_out_it_desc);
- 
- 		if (FUOUT_EN(opts))
-@@ -864,11 +961,7 @@
- 	if (EPOUT_EN(opts))
- 		headers[i++] = USBDHDR(&io_out_ot_desc);
- 
--	if (FUOUT_EN(opts) || FUIN_EN(opts)) {
--		headers[i++] = USBDHDR(ep_int_desc);
--		if (ep_int_desc_comp)
--			headers[i++] = USBDHDR(ep_int_desc_comp);
--	}
-+	/* XingCore: No interrupt endpoint in Audio Control Interface */
- 
- 	if (EPOUT_EN(opts)) {
- 		headers[i++] = USBDHDR(&std_as_out_if0_desc);
-@@ -886,6 +979,22 @@
- 			if (epin_fback_desc_comp)
- 				headers[i++] = USBDHDR(epin_fback_desc_comp);
- 		}
-+
-+		/* XingCore Alt Setting 2 (RAW_DATA format) */
-+		headers[i++] = USBDHDR(&std_as_out_if2_desc);
-+		headers[i++] = USBDHDR(&as_out_hdr2_desc);
-+		headers[i++] = USBDHDR(&as_out_fmt2_desc);
-+		headers[i++] = USBDHDR(epout_desc);
-+		if (epout_desc_comp)
-+			headers[i++] = USBDHDR(epout_desc_comp);
-+
-+		headers[i++] = USBDHDR(&as_iso_out_desc);
-+
-+		if (EPOUT_FBACK_IN_EN(opts)) {
-+			headers[i++] = USBDHDR(epin_fback_desc);
-+			if (epin_fback_desc_comp)
-+				headers[i++] = USBDHDR(epin_fback_desc_comp);
-+		}
- 	}
- 
- 	if (EPIN_EN(opts)) {
-@@ -904,27 +1013,31 @@
- 
- static void setup_descriptor(struct f_uac2_opts *opts)
- {
--	/* patch descriptors */
--	int i = 1; /* ID's start with 1 */
-+	/* XINGCORE STRUCTURE: single terminal chain for both playback and capture */
-+	if (EPOUT_EN(opts)) {
-+		/* XingCore Clock entities */
-+		out_clk_src_desc.bClockID = 41;    /* Clock Source ID */
-+		out_clk_sel_desc.bClockID = 40;    /* Clock Selector ID */
- 
-+		/* XingCore Terminal chain: 42 → 10 → 43 */
-+		usb_out_it_desc.bTerminalID = 42;  /* Input Terminal ID */
-+		out_feature_unit_desc->bUnitID = 10;  /* Feature Unit ID */
-+		io_out_ot_desc.bTerminalID = 43;    /* Output Terminal ID */
-+	}
-+
-+	/* Playback uses SAME terminals - XingCore has one chain */
-+	if (EPIN_EN(opts)) {
-+		io_in_it_desc.bTerminalID = 42;     /* Same Input Terminal */
-+		in_feature_unit_desc->bUnitID = 10;  /* Same Feature Unit */
-+		usb_in_ot_desc.bTerminalID = 43;    /* Same Output Terminal */
-+		in_clk_src_desc.bClockID = 41;      /* Same Clock Source */
-+	}
-+
-+	/* Link Clock Selector to Clock Source */
- 	if (EPOUT_EN(opts))
--		usb_out_it_desc.bTerminalID = i++;
--	if (EPIN_EN(opts))
--		io_in_it_desc.bTerminalID = i++;
--	if (EPOUT_EN(opts))
--		io_out_ot_desc.bTerminalID = i++;
--	if (EPIN_EN(opts))
--		usb_in_ot_desc.bTerminalID = i++;
--	if (FUOUT_EN(opts))
--		out_feature_unit_desc->bUnitID = i++;
--	if (FUIN_EN(opts))
--		in_feature_unit_desc->bUnitID = i++;
--	if (EPOUT_EN(opts))
--		out_clk_src_desc.bClockID = i++;
--	if (EPIN_EN(opts))
--		in_clk_src_desc.bClockID = i++;
-+		out_clk_sel_desc.baCSourceID[0] = out_clk_src_desc.bClockID;
- 
--	usb_out_it_desc.bCSourceID = out_clk_src_desc.bClockID;
-+	usb_out_it_desc.bCSourceID = out_clk_sel_desc.bClockID;  /* Link to Clock Selector */
- 
- 	if (FUIN_EN(opts)) {
- 		usb_in_ot_desc.bSourceID = in_feature_unit_desc->bUnitID;
-@@ -935,7 +1048,7 @@
- 
- 	usb_in_ot_desc.bCSourceID = in_clk_src_desc.bClockID;
- 	io_in_it_desc.bCSourceID = in_clk_src_desc.bClockID;
--	io_out_ot_desc.bCSourceID = out_clk_src_desc.bClockID;
-+	io_out_ot_desc.bCSourceID = out_clk_sel_desc.bClockID;  /* Link to Clock Selector */
- 
- 	if (FUOUT_EN(opts)) {
- 		io_out_ot_desc.bSourceID = out_feature_unit_desc->bUnitID;
-@@ -945,9 +1058,10 @@
- 	}
- 
- 	as_out_hdr_desc.bTerminalLink = usb_out_it_desc.bTerminalID;
-+	as_out_hdr2_desc.bTerminalLink = usb_out_it_desc.bTerminalID;  /* Alt2 uses same terminal */
- 	as_in_hdr_desc.bTerminalLink = usb_in_ot_desc.bTerminalID;
- 
--	iad_desc.bInterfaceCount = 1;
-+	/* iad_desc.bInterfaceCount = 2; - Already set to 2 for XingCore */
- 	ac_hdr_desc.wTotalLength = cpu_to_le16(sizeof(ac_hdr_desc));
- 
- 	if (EPIN_EN(opts)) {
-@@ -961,12 +1075,13 @@
- 
- 		len += sizeof(io_in_it_desc);
- 		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
--		iad_desc.bInterfaceCount++;
-+		/* iad_desc.bInterfaceCount stays at 2 for XingCore */
- 	}
- 	if (EPOUT_EN(opts)) {
- 		u16 len = le16_to_cpu(ac_hdr_desc.wTotalLength);
- 
- 		len += sizeof(out_clk_src_desc);
-+		len += sizeof(out_clk_sel_desc);
- 		len += sizeof(usb_out_it_desc);
- 
- 		if (FUOUT_EN(opts))
-@@ -974,7 +1089,7 @@
- 
- 		len += sizeof(io_out_ot_desc);
- 		ac_hdr_desc.wTotalLength = cpu_to_le16(len);
--		iad_desc.bInterfaceCount++;
-+		/* iad_desc.bInterfaceCount stays at 2 for XingCore */
- 	}
- 
- 	setup_headers(opts, fs_audio_desc, USB_SPEED_FULL);
-@@ -1091,26 +1206,39 @@
- 
- 	/* Initialize the configurable parameters */
- 	usb_out_it_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
--	usb_out_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
-+	usb_out_it_desc.bmChannelConfig = 0;  /* XingCore uses 0x00000000 for IT */
- 	io_in_it_desc.bNrChannels = num_channels(uac2_opts->p_chmask);
- 	io_in_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
- 	as_out_hdr_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
- 	as_out_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
-+	as_out_hdr2_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
-+	as_out_hdr2_desc.bmChannelConfig = 0;  /* XingCore Alt2 uses 0x00000000 */
- 	as_in_hdr_desc.bNrChannels = num_channels(uac2_opts->p_chmask);
- 	as_in_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
- 	as_out_fmt1_desc.bSubslotSize = uac2_opts->c_ssize;
- 	as_out_fmt1_desc.bBitResolution = uac2_opts->c_ssize * 8;
-+	as_out_fmt2_desc.bSubslotSize = uac2_opts->c_ssize;
-+	as_out_fmt2_desc.bBitResolution = uac2_opts->c_ssize * 8;
- 	as_in_fmt1_desc.bSubslotSize = uac2_opts->p_ssize;
- 	as_in_fmt1_desc.bBitResolution = uac2_opts->p_ssize * 8;
- 	if (FUOUT_EN(uac2_opts)) {
- 		__le32 *bma = (__le32 *)&out_feature_unit_desc->bmaControls[0];
- 		u32 control = 0;
-+		int channels = num_channels(uac2_opts->c_chmask);
-+		int i;
- 
-+		/* Master controls (bmaControls[0]) */
- 		if (uac2_opts->c_mute_present)
- 			control |= CONTROL_RDWR << FU_MUTE_CTRL;
--		if (uac2_opts->c_volume_present)
--			control |= CONTROL_RDWR << FU_VOL_CTRL;
--		*bma = cpu_to_le32(control);
-+		/* XingCore: Master has NO volume, only per-channel */
-+		*bma++ = cpu_to_le32(control);
-+
-+		/* Per-channel volume controls (bmaControls[1], bmaControls[2], ...) */
-+		if (uac2_opts->c_volume_present) {
-+			control = CONTROL_RDWR << FU_VOL_CTRL;
-+			for (i = 0; i < channels; i++)
-+				*bma++ = cpu_to_le32(control);
-+		}
- 	}
- 	if (FUIN_EN(uac2_opts)) {
- 		__le32 *bma = (__le32 *)&in_feature_unit_desc->bmaControls[0];
-@@ -1142,7 +1270,9 @@
- 		}
- 		std_as_out_if0_desc.bInterfaceNumber = ret;
- 		std_as_out_if1_desc.bInterfaceNumber = ret;
-+		std_as_out_if2_desc.bInterfaceNumber = ret;  /* Alt2 same interface */
- 		std_as_out_if1_desc.bNumEndpoints = 1;
-+		std_as_out_if2_desc.bNumEndpoints = 1;  /* Alt2 has 1 endpoint */
- 		uac2->as_out_intf = ret;
- 		uac2->as_out_alt = 0;
- 
-@@ -1154,6 +1284,7 @@
- 			ss_epout_desc.bmAttributes =
- 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC;
- 			std_as_out_if1_desc.bNumEndpoints++;
-+			std_as_out_if2_desc.bNumEndpoints++;  /* Alt2 also gets feedback */
+ 	if (!opts->p_chmask && !opts->c_chmask)
+ 		msg = "no playback and capture channels";
+ 	else if (opts->p_chmask & ~UAC2_CHANNEL_MASK)
+@@ -1629,8 +1633,8 @@
+ 			}
+ 			rs.wNumSubRanges = cpu_to_le16(wNumSubRanges);
+ 			value = min_t(unsigned int, w_length, ranges_lay3_size(rs));
+-			dev_dbg(&agdev->gadget->dev, "%s(): sending %d rates, size %d\n",
+-				__func__, rs.wNumSubRanges, value);
++			dev_info(&agdev->gadget->dev, "GET_RANGE: sending %d rates for clock %d\n",
++				 wNumSubRanges, entity_id);
+ 			memcpy(req->buf, &rs, value);
  		} else {
- 			fs_epout_desc.bmAttributes =
- 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE;
-@@ -1176,16 +1307,7 @@
- 		uac2->as_in_alt = 0;
- 	}
- 
--	if (FUOUT_EN(uac2_opts) || FUIN_EN(uac2_opts)) {
--		uac2->int_ep = usb_ep_autoconfig(gadget, &fs_ep_int_desc);
--		if (!uac2->int_ep) {
--			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
--			ret = -ENODEV;
--			goto err_free_fu;
--		}
--
--		std_ac_if_desc.bNumEndpoints = 1;
--	}
-+	/* XingCore: No interrupt endpoint in Audio Control Interface */
- 
- 	hs_epin_desc.bInterval = uac2_opts->p_hs_bint;
- 	ss_epin_desc.bInterval = uac2_opts->p_hs_bint;
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
+ 			dev_err(&agdev->gadget->dev,
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_vendor.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_vendor.c
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_vendor.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_vendor.c	2025-11-24 09:35:48.429406252 +0300
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: GPL-2.0+
++
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/device.h>
++#include <linux/usb/composite.h>
++#include <linux/configfs.h>
++
++/*-------------------------------------------------------------------------*/
++
++/* Interface descriptor */
++static struct usb_interface_descriptor vendor_intf_desc = {
++	.bLength =		sizeof(vendor_intf_desc),
++	.bDescriptorType =	USB_DT_INTERFACE,
++	.bInterfaceNumber =	0,  /* Dynamic */
++	.bAlternateSetting =	0,
++	.bNumEndpoints =	0,
++	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,  /* 0xFF */
++	.bInterfaceSubClass =	0xFF,
++	.bInterfaceProtocol =	0xFF,
++	.iInterface =		0,
++};
++
++static struct usb_descriptor_header *vendor_fs_function[] = {
++	(struct usb_descriptor_header *) &vendor_intf_desc,
++	NULL,
++};
++
++static struct usb_descriptor_header *vendor_hs_function[] = {
++	(struct usb_descriptor_header *) &vendor_intf_desc,
++	NULL,
++};
++
++static struct usb_descriptor_header *vendor_ss_function[] = {
++	(struct usb_descriptor_header *) &vendor_intf_desc,
++	NULL,
++};
++
++/*-------------------------------------------------------------------------*/
++
++struct f_vendor {
++	struct usb_function	function;
++};
++
++static inline struct f_vendor *func_to_vendor(struct usb_function *f)
++{
++	return container_of(f, struct f_vendor, function);
++}
++
++/*-------------------------------------------------------------------------*/
++
++static int vendor_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
++{
++	/* XingCore: No endpoints, nothing to configure */
++	return 0;
++}
++
++static void vendor_disable(struct usb_function *f)
++{
++	/* XingCore: No endpoints, nothing to disable */
++}
++
++static int vendor_bind(struct usb_configuration *c, struct usb_function *f)
++{
++	struct usb_composite_dev *cdev = c->cdev;
++	struct f_vendor *vendor = func_to_vendor(f);
++	int status;
++
++	/* Allocate interface ID */
++	status = usb_interface_id(c, f);
++	if (status < 0)
++		return status;
++	vendor_intf_desc.bInterfaceNumber = status;
++
++	/* XingCore: No endpoints to allocate */
++
++	/* Support all speeds */
++	usb_assign_descriptors(f, vendor_fs_function, vendor_hs_function,
++			       vendor_ss_function, NULL);
++
++	dev_info(&cdev->gadget->dev, "XingCore vendor interface ready\n");
++	return 0;
++}
++
++static void vendor_free_func(struct usb_function *f)
++{
++	struct f_vendor *vendor = func_to_vendor(f);
++	kfree(vendor);
++}
++
++static void vendor_unbind(struct usb_configuration *c, struct usb_function *f)
++{
++	usb_free_all_descriptors(f);
++}
++
++/*-------------------------------------------------------------------------*/
++
++static struct usb_function *vendor_alloc(struct usb_function_instance *fi)
++{
++	struct f_vendor *vendor;
++
++	vendor = kzalloc(sizeof(*vendor), GFP_KERNEL);
++	if (!vendor)
++		return ERR_PTR(-ENOMEM);
++
++	vendor->function.name = "vendor";
++	vendor->function.bind = vendor_bind;
++	vendor->function.unbind = vendor_unbind;
++	vendor->function.set_alt = vendor_set_alt;
++	vendor->function.disable = vendor_disable;
++	vendor->function.free_func = vendor_free_func;
++
++	return &vendor->function;
++}
++
++static void vendor_free_instance(struct usb_function_instance *fi)
++{
++	kfree(fi);
++}
++
++/* ConfigFS support */
++static const struct config_item_type vendor_func_type = {
++	.ct_owner	= THIS_MODULE,
++};
++
++static struct usb_function_instance *vendor_alloc_inst(void)
++{
++	struct usb_function_instance *fi;
++
++	fi = kzalloc(sizeof(*fi), GFP_KERNEL);
++	if (!fi)
++		return ERR_PTR(-ENOMEM);
++
++	fi->free_func_inst = vendor_free_instance;
++
++	/* ConfigFS registration - critical for function availability */
++	config_group_init_type_name(&fi->group, "", &vendor_func_type);
++
++	return fi;
++}
++
++DECLARE_USB_FUNCTION_INIT(vendor, vendor_alloc_inst, vendor_alloc);
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("XingCore Emulation");
++MODULE_DESCRIPTION("Vendor-specific USB function for Configuration 2");
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/Makefile
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/Makefile	2025-11-23 18:14:48.046609241 +0300
+@@ -50,3 +50,5 @@
+ obj-$(CONFIG_USB_F_PRINTER)	+= usb_f_printer.o
+ usb_f_tcm-y			:= f_tcm.o
+ obj-$(CONFIG_USB_F_TCM)		+= usb_f_tcm.o
++usb_f_vendor-y			:= f_vendor.o
++obj-$(CONFIG_USB_F_VENDOR)	+= usb_f_vendor.o
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-17 11:44:28.706887751 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-23 09:53:36.250238103 +0300
 @@ -82,6 +82,13 @@
  	struct snd_card *card;
  	struct snd_pcm *pcm;
@@ -896,166 +667,34 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio
  MODULE_LICENSE("GPL");
  MODULE_DESCRIPTION("USB gadget \"ALSA sound card\" utilities");
  MODULE_AUTHOR("Ruslan Bilovol");
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile
---- linux-rockchip-rk-6.1-rkr6.1_orig/scripts/dtc/include-prefixes/arm/Makefile	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/scripts/dtc/include-prefixes/arm/Makefile	2025-11-07 17:11:17.088713026 +0300
-@@ -1122,152 +1122,9 @@
- 	r9a06g032-rzn1d400-db.dtb \
- 	sh73a0-kzm9g.dtb
- dtb-$(CONFIG_ARCH_ROCKCHIP) += \
--	rv1103g-38x38-ipc-v10.dtb \
--	rv1103g-battery-ipc-v10.dtb \
--	rv1103g-battery-ipc-v11.dtb \
--	rv1103g-evb-mcu-display-v11.dtb \
--	rv1103g-evb-v10.dtb \
--	rv1103g-evb-v11.dtb \
--	rv1103g-evb-v11-sii902x-bt6562hdmi.dtb \
--	rv1103g-evb2-v10.dtb \
--	rv1103g-rmsl311-dloc-sl-v10.dtb \
--	rv1103g-scaner-v10.dtb \
--	rv1106g-38x38-ipc-v10.dtb \
--	rv1106g-38x38-ipc-v10-spi-nand.dtb \
--	rv1106g-evb1-mcu-display-v11.dtb \
--	rv1106g-evb1-mcu-display-v20.dtb \
--	rv1106g-evb1-rgb-display-v11.dtb \
--	rv1106g-evb1-v10.dtb \
--	rv1106g-evb1-v10-dual-cam.dtb \
--	rv1106g-evb1-v10-facial-gate.dtb \
--	rv1106g-evb1-v10-spi-nand.dtb \
--	rv1106g-evb1-v10-spi-nor.dtb \
--	rv1106g-evb1-v11.dtb \
--	rv1106g-evb1-v11-4k.dtb \
--	rv1106g-evb1-v11-cvr.dtb \
--	rv1106g-evb1-v11-cvr-dual-cam.dtb \
--	rv1106g-evb1-v11-cvr-ext-dual-cam.dtb \
--	rv1106g-evb1-v11-dual-cam.dtb \
--	rv1106g-evb1-v11-facial-gate.dtb \
--	rv1106g-evb1-v11-nofastae-spi-nand.dtb \
--	rv1106g-evb1-v11-sii902x-bt11202hdmi.dtb \
--	rv1106g-evb1-v11-sii902x-rgb2hdmi.dtb \
--	rv1106g-evb1-v11-spi-nand-cvr.dtb \
--	rv1106g-evb2-v10.dtb \
--	rv1106g-evb2-v10-dual-camera.dtb \
--	rv1106g-evb2-v11-emmc.dtb \
--	rv1106g-evb2-v11-trailcam-emmc.dtb \
--	rv1106g-evb2-v12-aov-spi-nor.dtb \
--	rv1106g-evb2-v12-dual-camera-avs.dtb \
--	rv1106g-evb2-v12-nofastae-emmc.dtb \
--	rv1106g-evb2-v12-nofastae-spi-nand.dtb \
--	rv1106g-evb2-v12-nofastae-spi-nor.dtb \
--	rv1106g-evb2-v12-spi-nand-tb.dtb \
--	rv1106g-evb2-v12-wakeup.dtb \
--	rv1106g-smart-door-lock-rmsl-v10.dtb \
--	rv1106g-smart-door-lock-rmsl-v12.dtb \
--	rv1106g-uvc-demo-v10.dtb \
--	rv1106g-uvc-demo-v10-spi-nor.dtb \
--	rv1108-elgin-r1.dtb \
--	rv1108-evb.dtb \
--	rv1126-evb-ddr3-v10.dtb \
--	rv1126-evb-ddr3-v12.dtb \
--	rv1126-evb-ddr3-v12-spi-nand.dtb \
--	rv1126-evb-ddr3-v12-spi-nor.dtb \
--	rv1126-evb-ddr3-v13.dtb \
--	rv1126b-evb1-v10.dtb \
--	rv1126b-evb1-v10-bt-sco.dtb \
--	rv1126b-evb1-v10-dual-4k.dtb \
--	rv1126b-evb1-v10-dv.dtb \
--	rv1126b-evb1-v10-fastboot-emmc.dtb \
--	rv1126b-evb1-v10-fastboot-spi-nand.dtb \
--	rv1126b-evb1-v10-fastboot-spi-nor.dtb \
--	rv1126b-evb1-v10-spi-nor.dtb \
--	rv1126b-evb1-v11.dtb \
--	rv1126b-evb1-v11-dual-4k.dtb \
--	rv1126b-evb2-v10.dtb \
--	rv1126b-evb2-v10-mcu-k350c4516t.dtb \
--	rv1126b-evb2-v10-rgb-Q7050ITH2641AA1T.dtb \
--	rv1126b-evb2-v10-sii9022-bt1120-to-hdmi.dtb \
--	rv1126b-evb2-v10-tb-400w.dtb \
--	rv1126b-evb3-v10.dtb \
--	rv1126b-evb4-v10.dtb \
--	rv1126b-iotest-v10.dtb \
--	rv1126bp-evb-v14.dtb \
--	rv1126bp-evb-v14-dual-cam.dtb \
--	rk3036-evb.dtb \
--	rk3036-evb1-ddr3-v10.dtb \
--	rk3036-kylin.dtb \
--	rk3066a-bqcurie2.dtb \
--	rk3066a-marsboard.dtb \
--	rk3066a-mk808.dtb \
--	rk3066a-rayeager.dtb \
--	rk3126c-evb-ddr3-v10-linux.dtb \
--	rk3126c-evb-ddr3-v10-linux-slc.dtb \
--	rk3128-evb-ddr3-v10-linux.dtb \
--	rk3128-evb-ddr3-v10-linux-spi-nand.dtb \
--	rk3188-bqedison2qc.dtb \
--	rk3188-px3-evb.dtb \
--	rk3188-radxarock.dtb \
--	rk3228-evb.dtb \
--	rk3229-evb.dtb \
--	rk3229-xms6.dtb \
--	rk3288-evb-act8846.dtb \
--	rk3288-evb-rk808.dtb \
--	rk3288-firefly-beta.dtb \
--	rk3288-firefly.dtb \
--	rk3288-firefly-reload.dtb \
--	rk3288-miqi.dtb \
--	rk3288-phycore-rdk.dtb \
--	rk3288-popmetal.dtb \
--	rk3288-r89.dtb \
--	rk3288-rock2-square.dtb \
--	rk3288-rock-pi-n8.dtb \
--	rk3288-tinker.dtb \
--	rk3288-tinker-s.dtb \
--	rk3288-veyron-brain.dtb \
--	rk3288-veyron-fievel.dtb \
--	rk3288-veyron-jaq.dtb \
--	rk3288-veyron-jerry.dtb \
--	rk3288-veyron-mickey.dtb \
--	rk3288-veyron-mighty.dtb \
--	rk3288-veyron-minnie.dtb \
--	rk3288-veyron-pinky.dtb \
--	rk3288-veyron-speedy.dtb \
--	rk3288-veyron-tiger.dtb \
--	rk3288-vyasa.dtb \
--	rk3308-evb-audio-v10-amp-display-rgb-aarch32.dtb \
--	rk3308-evb-audio-v10-display-rgb-aarch32.dtb \
--	rk3308-evb-audio-v11-display-rgb-aarch32.dtb \
--	rk3308bs-evb-amic-v11-aarch32.dtb \
--	rk3308bs-evb-dmic-pdm-v11-aarch32.dtb \
--	rk3308bs-evb-mipi-display-v11-aarch32.dtb \
--	rk3308hs-voice-module-board-v10-aarch32.dtb \
--	rk3502g-evb1-v10.dtb \
--	rk3503g-evb1-v10.dtb \
--	rk3506b-evb1-v10.dtb \
--	rk3506b-test2-v10.dtb \
--	rk3506g-demo-display-control.dtb \
--	rk3506g-evb1-v10.dtb \
--	rk3506g-evb1-v10-amp.dtb \
--	rk3506g-evb1-v10-dsmc-lb-slave.dtb \
--	rk3506g-evb1-v10-dsmc-master.dtb \
--	rk3506g-evb1-v10-flexbus-adc-dac.dtb \
--	rk3506g-evb1-v10-mcu-k350c4516t.dtb \
--	rk3506g-evb1-v10-rgb-Q7050ITH2641AA1T.dtb \
--	rk3506g-evb1-v10-sii9022-bt1120-to-hdmi.dtb \
--	rk3506g-evb1-v10-sii9022-rgb2hdmi.dtb \
--	rk3506g-evb2-v10.dtb \
--	rk3506g-iotest-v10.dtb \
--	rk3506g-iotest-v10-pdm.dtb \
--	rk3506g-test1-v10-audio.dtb \
--	rk3518-evb1-ddr4-v10.dtb \
--	rk3528-demo4-ddr4-v10.dtb \
--	rk3528-evb1-ddr4-v10.dtb \
--	rk3528-evb2-ddr3-v10.dtb \
--	rk3528-evb3-lp4x-v10.dtb \
--	rk3528-evb4-ddr4-v10.dtb \
--	rk3562-evb2-ddr4-v10.dtb
-+	rv1106_ext.dtb \
-+	rv1106_512_ext.dtb \
-+	rv1106_pll.dtb
- dtb-$(CONFIG_ARCH_S3C24XX) += \
- 	s3c2416-smdk2416.dtb
- dtb-$(CONFIG_ARCH_S3C64XX) += \
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/codecs/dummy-codec.c
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/Kconfig linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/Kconfig
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/Kconfig	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/Kconfig	2025-11-24 09:38:02.584564580 +0300
+@@ -216,6 +216,9 @@
+ config USB_F_TCM
+ 	tristate
+ 
++config USB_F_VENDOR
++	tristate
++
+ # this first set of drivers all depend on bulk-capable hardware.
+ 
+ config USB_CONFIGFS
+@@ -494,6 +497,13 @@
+ 	  Both protocols can work on USB2.0 and USB3.0.
+ 	  UAS utilizes the USB 3.0 feature called streams support.
+ 
++config USB_CONFIGFS_F_VENDOR
++	bool "Vendor-specific function"
++	depends on USB_CONFIGFS
++	select USB_LIBCOMPOSITE
++	select USB_F_VENDOR
++	help
++
+ source "drivers/usb/gadget/legacy/Kconfig"
+ 
+ endif # USB_GADGET
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/codecs/dummy-codec.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/codecs/dummy-codec.c	2025-11-07 12:03:40.403261526 +0300
 @@ -48,25 +48,31 @@
@@ -1100,7 +739,7 @@ diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/dummy-codec.c linu
  	},
  	.ops = &dummy_codec_dai_ops,
  };
-diff -Naur linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-17 20:16:51.398373904 +0300
 @@ -1,31 +1,46 @@

@@ -73,15 +73,18 @@ static const char* get_dsd_name(unsigned int rate) {
 }
 
 /* Инициализация volume sync: открыть mixers для UAC2 и I2S */
-static int init_volume_sync(void) {
+static int init_volume_sync(int card) {
+    char uac_mixer_name[16];
     snd_mixer_selem_id_t *sid;
+
+    sprintf(uac_mixer_name, "hw:%d", card);
 
     /* Open UAC2 mixer */
     if (snd_mixer_open(&uac2_mixer, 0) < 0) {
         fprintf(stderr, "[VOLUME] Cannot open UAC2 mixer\n");
         return -1;
     }
-    if (snd_mixer_attach(uac2_mixer, "hw:1") < 0) {
+    if (snd_mixer_attach(uac2_mixer, uac_mixer_name) < 0) {
         fprintf(stderr, "[VOLUME] Cannot attach UAC2 mixer\n");
         snd_mixer_close(uac2_mixer);
         uac2_mixer = NULL;
@@ -127,7 +130,7 @@ static int init_volume_sync(void) {
         return -1;
     }
 
-    printf("[VOLUME] Volume sync initialized: UAC2 (hw:1) ↔ I2S (hw:0)\n");
+    printf("[VOLUME] Volume sync initialized: UAC2 (hw:%d) ↔ I2S (hw:0)\n", card);
     return 0;
 }
 
@@ -181,8 +184,8 @@ static int find_uac_card(void) {
         if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
             strncpy(uac_card_path, path, sizeof(uac_card_path) - 1);
             snprintf(uac_card_name, sizeof(uac_card_name), "uac_card%d", i);
-            printf("Found UAC card: %s\n", uac_card_path);
-            return 0;
+            printf("Found UAC card: %s (card %d)\n", uac_card_path, i);
+            return i;  // Возвращаем номер карты
         }
     }
 
@@ -311,7 +314,7 @@ static void close_pcms(void) {
 }
 
 /* Настроить аудио с заданной частотой */
-static int configure_audio(unsigned int rate, char **buffer, size_t *buffer_size,
+static int configure_audio(unsigned int rate, int card, char **buffer, size_t *buffer_size,
                           snd_pcm_uframes_t *period_size_out) {
     snd_pcm_uframes_t capture_period_size, playback_period_size;
     int is_dsd = is_dsd_rate(rate);
@@ -326,7 +329,9 @@ static int configure_audio(unsigned int rate, char **buffer, size_t *buffer_size
     close_pcms();
 
     /* UAC2 capture - всегда PCM S32_LE (USB передает DSD как "raw" 32-bit data) */
-    if (setup_pcm(&pcm_capture, UAC2_CARD, SND_PCM_STREAM_CAPTURE,
+    char uac_device[32];
+    sprintf(uac_device, "hw:%d,0", card);
+    if (setup_pcm(&pcm_capture, uac_device, SND_PCM_STREAM_CAPTURE,
                   rate, I2S_FORMAT_PCM, I2S_CHANNELS) < 0) {
         return -1;
     }
@@ -400,6 +405,7 @@ int main(void) {
     snd_pcm_uframes_t period_size = PERIOD_FRAMES;
     int uevent_sock = -1;
     char uevent_buf[UEVENT_BUFFER_SIZE];
+    int uac_card = -1;
 
     signal(SIGINT, sighandler);
     signal(SIGTERM, sighandler);
@@ -409,7 +415,8 @@ int main(void) {
     printf("═══════════════════════════════════════════════════════════\n\n");
 
     /* Найти UAC карту */
-    if (find_uac_card() < 0) {
+    uac_card = find_uac_card();
+    if (uac_card < 0) {
         fprintf(stderr, "ERROR: UAC2 device not found. Is gadget loaded?\n");
         return 1;
     }
@@ -446,13 +453,13 @@ int main(void) {
     int rate = read_sysfs_int(SYSFS_RATE_FILE);
     if (rate > 0) {
         printf("Initial rate: %d Hz\n", rate);
-        if (configure_audio(rate, &buffer, &buffer_size, &period_size) == 0) {
+        if (configure_audio(rate, uac_card, &buffer, &buffer_size, &period_size) == 0) {
             current_rate = rate;
         }
     }
 
-    /* Инициализировать volume sync */
-    init_volume_sync();
+    /* Volume sync отключен - UAC2 не имеет mixer controls */
+    printf("[VOLUME] Volume sync disabled - UAC2 has no mixer controls\n");
 
     /* Основной цикл */
     while (running) {
@@ -469,7 +476,7 @@ int main(void) {
                 if (rate > 0 && rate != current_rate) {
                     printf("\n[CHANGE] Rate changed: %u Hz -> %u Hz\n", current_rate, rate);
 
-                    if (configure_audio(rate, &buffer, &buffer_size, &period_size) == 0) {
+                    if (configure_audio(rate, uac_card, &buffer, &buffer_size, &period_size) == 0) {
                         current_rate = rate;
                     }
                 }
@@ -578,8 +585,7 @@ int main(void) {
             }
         }
 
-        /* Синхронизировать volume в каждой итерации (независимо от аудио) */
-        sync_volume();
+        /* Volume sync отключен */
     }
 
     /* Cleanup */
@@ -590,7 +596,7 @@ int main(void) {
         free(buffer);
 
     close_pcms();
-    close_mixers();
+    /* close_mixers() отключен - не используется */
 
     printf("\n═══════════════════════════════════════════════════════════\n");
     printf("  UAC2 -> I2S Router stopped\n");
