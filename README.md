@@ -1,6 +1,6 @@
-# PureFox - XingCore USB Hi-Resolution Audio Emulator
+# PureFox - PureCore USB Hi-Resolution Audio Emulator
 
-Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio hardware using USB Audio Class 2.0 (UAC2).
+Embedded Linux system for Luckfox Pico (RV1106) that emulates PureCore USB Audio hardware using USB Audio Class 2.0 (UAC2).
 
 ## Hardware
 - **Target**: Rockchip RV1106 (ARM Cortex-A7)
@@ -13,7 +13,7 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 | Mode | Driver | Windows API | Formats | Status |
 |------|--------|-------------|---------|--------|
 | **Without Drivers** | Windows USB Audio 2.0 (built-in) | WASAPI | PCM 44.1-768 kHz | ✅ Working |
-| **With Thesycon Drivers** | XingCore ASIO | WASAPI/ASIO | PCM + DSD64-512 | ✅ Testing needed |
+| **With Thesycon Drivers** | PureCore ASIO | WASAPI/ASIO | PCM + DSD64-512 | ✅ Testing needed |
 | Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
 
 **DSD Support:**
@@ -41,15 +41,15 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 **Without Drivers (pcm-standard):**
 1. Connect device to Windows PC
 2. Windows will automatically install "USB Audio 2.0" driver
-3. Device appears as "XingCore USB Hi-Resolution Audio"
+3. Device appears as "PureCore USB Hi-Resolution Audio"
 4. Use WASAPI-compatible applications (Foobar2000, MusicBee, etc.)
 
 **With Thesycon Drivers:**
-1. Install XingCore ASIO drivers
+1. Install PureCore ASIO drivers
 2. Connect device to Windows PC
 3. Use ASIO-compatible applications (Roon, Foobar2000 ASIO, etc.)
 
-**Note:** If device shows "XingCore" with libwdi/WinUSB driver, manually switch to "USB Audio 2.0" driver in Device Manager.
+**Note:** If device shows "PureCore" with libwdi/WinUSB driver, manually switch to "USB Audio 2.0" driver in Device Manager.
 
 ---
 

@@ -7,7 +7,7 @@
 ## Ключевые особенности
 
 ✅ **Отслеживание частоты через uevent** - мгновенная реакция на изменения
-✅ **Фиксированный 32-бит формат** - как в оригинальном XingCore
+✅ **Фиксированный 32-бит формат** - как в оригинальном PureCore
 ✅ **Статичное чтение format/channels** - один раз при инициализации
 ✅ **Низкая задержка** - нет polling'а, события через netlink kobject_uevent
 
@@ -23,7 +23,7 @@
 - ✅ Использует `/sys/class/u_audio/uac_card*/`
 - ✅ Netlink socket на kobject uevent - мгновенная реакция
 - ✅ Читает `format` и `channels` один раз (статичные)
-- ✅ Фиксированный 32-бит I2S (соответствует XingCore)
+- ✅ Фиксированный 32-бит I2S (соответствует PureCore)
 - ✅ Нет overhead от polling'а
 
 ## Sysfs интерфейс
@@ -83,7 +83,7 @@
 #define I2S_CHANNELS 2                     /* Всегда стерео */
 ```
 
-Это соответствует работе оригинального аппаратного XingCore и обеспечивает:
+Это соответствует работе оригинального аппаратного PureCore и обеспечивает:
 - Совместимость с любыми DAC
 - Отсутствие потери качества
 - Простоту реализации
@@ -129,7 +129,7 @@ systemctl enable uac2-router  # автозапуск
 
 ```
 ═══════════════════════════════════════════════════════════
-  UAC2 -> I2S Router (uevent-based, XingCore compatible)
+  UAC2 -> I2S Router (uevent-based, PureCore compatible)
 ═══════════════════════════════════════════════════════════
 
 Found UAC card: /sys/class/u_audio/uac_card1
@@ -196,7 +196,7 @@ uname -r
 dmesg | grep u_audio
 
 # Проверить, что UAC2 gadget активен
-ls /sys/kernel/config/usb_gadget/xingcore/UDC
+ls /sys/kernel/config/usb_gadget/purecore/UDC
 ```
 
 ## Производительность
@@ -208,7 +208,7 @@ ls /sys/kernel/config/usb_gadget/xingcore/UDC
 
 ## Совместимость
 
-✅ Работает с оригинальным XingCore форматом
+✅ Работает с оригинальным PureCore форматом
 ✅ Поддерживает все частоты 44.1 - 384 kHz
 ✅ Автоматически адаптируется к смене частоты
 ✅ Не требует перезапуска при изменениях

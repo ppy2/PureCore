@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# XingCore UAC2 Gadget Auto-start Script - ПОЛНАЯ ЭМУЛЯЦИЯ
+# PureCore UAC2 Gadget Auto-start Script - ПОЛНАЯ ЭМУЛЯЦИЯ
 # Запускается последним в автозагрузке
 #
 # ЭМУЛИРОВАНО через configfs:
@@ -15,21 +15,21 @@
 # ✗ Вторая vendor-specific конфигурация
 
 start() {
-    echo "Starting XingCore UAC2 gadget..."
+    echo "Starting PureCore UAC2 gadget..."
     sleep 2  # Даем время на инициализацию USB
 
     # Проверяем доступен ли UDC
     if [ ! -d /sys/class/udc ]; then
-        echo "UDC not available, skipping XingCore gadget"
+        echo "UDC not available, skipping PureCore gadget"
         return 1
     fi
 
-    # Создаем XingCore гаджет
+    # Создаем PureCore гаджет
     cd /sys/kernel/config/usb_gadget
 
     # Полностью удаляем старый gadget если существует
-    if [ -d "xingcore" ]; then
-        cd xingcore
+    if [ -d "purecore" ]; then
+        cd purecore
         echo "" > UDC 2>/dev/null
         rm -f configs/c.1/uac2.usb0 2>/dev/null
         rm -f configs/c.2/vendor.0 2>/dev/null
@@ -39,13 +39,13 @@ start() {
         rmdir functions/vendor.0 2>/dev/null
         rmdir strings/0x409 2>/dev/null
         cd ..
-        rmdir xingcore 2>/dev/null
+        rmdir purecore 2>/dev/null
     fi
 
-    mkdir -p xingcore
-    cd xingcore
+    mkdir -p purecore
+    cd purecore
 
-    # Device Descriptor (оригинальные XingCore ID)
+    # Device Descriptor (оригинальные PureCore ID)
     echo 0x152A > idVendor
     echo 0x8852 > idProduct
     echo 0x0312 > bcdDevice
@@ -58,8 +58,8 @@ start() {
 
     # Device Strings - минимальные как в оригинале
     mkdir -p strings/0x409
-    echo "XingCore" > strings/0x409/manufacturer
-    echo "XingCore USB Hi-Resolution Audio" > strings/0x409/product
+    echo "PureCore" > strings/0x409/manufacturer
+    echo "PureCore USB Hi-Resolution Audio" > strings/0x409/product
     # Serial number = 0x00 (пустой) как в оригинале
     echo "" > strings/0x409/serialnumber
 
@@ -84,11 +84,11 @@ start() {
 
     # КРИТИЧЕСКИ ВАЖНО: Минимальные параметры для wMaxPacketSize < 1024
     echo 2 > functions/uac2.usb0/req_number    # USB request буферы (минимально для <1024)
-    # XingCore emulation: fb_max=50 для wMaxPacketSize ≈ 768 байт
+    # PureCore emulation: fb_max=50 для wMaxPacketSize ≈ 768 байт
     echo 50 > functions/uac2.usb0/fb_max         # Async overhead (минимально для стабильности)
 
     # Function name - показывается в Windows как имя устройства
-    echo "XingCore" > functions/uac2.usb0/function_name
+    echo "PureCore" > functions/uac2.usb0/function_name
 
     # Configuration 1 - UAC2 Audio (Self-powered)
     mkdir -p configs/c.1
@@ -97,7 +97,7 @@ start() {
     # iConfiguration = 0x00 (не создаём strings!)
     ln -s functions/uac2.usb0 configs/c.1/
 
-    # Configuration 2 - DISABLED for standard UAC2 (no XingCore driver needed)
+    # Configuration 2 - DISABLED for standard UAC2 (no PureCore driver needed)
     # mkdir -p functions/vendor.0
     # mkdir -p configs/c.2
     # echo 0xC0 > configs/c.2/bmAttributes  # Self-powered
@@ -108,7 +108,7 @@ start() {
     # Enable gadget
     ls /sys/class/udc > UDC
 
-    echo "XingCore UAC2 gadget with 2 configurations started"
+    echo "PureCore UAC2 gadget with 2 configurations started"
 }
 
 case "$1" in
@@ -116,8 +116,8 @@ case "$1" in
     start
     ;;
   stop)
-    echo "Stopping XingCore gadget..."
-    cd /sys/kernel/config/usb_gadget/xingcore 2>/dev/null && echo "" > UDC 2>/dev/null
+    echo "Stopping PureCore gadget..."
+    cd /sys/kernel/config/usb_gadget/purecore 2>/dev/null && echo "" > UDC 2>/dev/null
     ;;
   restart)
     $0 stop

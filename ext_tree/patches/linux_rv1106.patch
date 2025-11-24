@@ -248,7 +248,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	[STR_IO_IT].s = "USBD Out",
  	[STR_USB_OT].s = "USBH In",
 -	[STR_IO_OT].s = "USBD In",
-+	[STR_IO_OT].s = "XingCore",  /* Speaker terminal - shown in Windows */
++	[STR_IO_OT].s = "PureCore",  /* Speaker terminal - shown in Windows */
  	[STR_FU_IN].s = "Capture Volume",
  	[STR_FU_OUT].s = "Playback Volume",
  	[STR_AS_OUT_ALT0].s = "Playback Inactive",
@@ -337,7 +337,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	io_out_ot_desc.iTerminal = us[STR_IO_OT].id;
  	std_as_out_if0_desc.iInterface = us[STR_AS_OUT_ALT0].id;
  	std_as_out_if1_desc.iInterface = us[STR_AS_OUT_ALT1].id;
-+	std_as_out_if2_desc.iInterface = 0;  /* DSD Alt Setting 2 - no string descriptor like original XingCore */
++	std_as_out_if2_desc.iInterface = 0;  /* DSD Alt Setting 2 - no string descriptor like original PureCore */
  	std_as_in_if0_desc.iInterface = us[STR_AS_IN_ALT0].id;
  	std_as_in_if1_desc.iInterface = us[STR_AS_IN_ALT1].id;
  
@@ -435,13 +435,13 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +
 +static int vendor_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 +{
-+	/* XingCore: No endpoints, nothing to configure */
++	/* PureCore: No endpoints, nothing to configure */
 +	return 0;
 +}
 +
 +static void vendor_disable(struct usb_function *f)
 +{
-+	/* XingCore: No endpoints, nothing to disable */
++	/* PureCore: No endpoints, nothing to disable */
 +}
 +
 +static int vendor_bind(struct usb_configuration *c, struct usb_function *f)
@@ -456,13 +456,13 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +		return status;
 +	vendor_intf_desc.bInterfaceNumber = status;
 +
-+	/* XingCore: No endpoints to allocate */
++	/* PureCore: No endpoints to allocate */
 +
 +	/* Support all speeds */
 +	usb_assign_descriptors(f, vendor_fs_function, vendor_hs_function,
 +			       vendor_ss_function, NULL);
 +
-+	dev_info(&cdev->gadget->dev, "XingCore vendor interface ready\n");
++	dev_info(&cdev->gadget->dev, "PureCore vendor interface ready\n");
 +	return 0;
 +}
 +
@@ -525,7 +525,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +
 +DECLARE_USB_FUNCTION_INIT(vendor, vendor_alloc_inst, vendor_alloc);
 +MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("XingCore Emulation");
++MODULE_AUTHOR("PureCore Emulation");
 +MODULE_DESCRIPTION("Vendor-specific USB function for Configuration 2");
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/Makefile
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile	2025-07-03 13:59:45.000000000 +0300
@@ -7886,7 +7886,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/usb/quirks.c
  		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
  	DEVICE_FLG(0x13e5, 0x0001, /* Serato Phono */
  		   QUIRK_FLAG_IGNORE_CTL_ERROR),
-+	DEVICE_FLG(0x152a, 0x8852, /* XingCore USB Hi-Resolution Audio */
++	DEVICE_FLG(0x152a, 0x8852, /* PureCore USB Hi-Resolution Audio */
 +		   QUIRK_FLAG_DSD_RAW),
  	DEVICE_FLG(0x154e, 0x1002, /* Denon DCD-1500RE */
  		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY),
