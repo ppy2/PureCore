@@ -36,37 +36,6 @@ Embedded Linux system for Luckfox Pico (RV1106) that emulates XingCore USB Audio
 
 ---
 
-### `dsd-thesycon` (DSD Development Branch)
-Extended UAC2 with native DSD support via Alt Setting 2.
-
-**Supported Modes:**
-
-| Mode | Driver | Windows API | Formats | Status |
-|------|--------|-------------|---------|--------|
-| **Without Drivers** | N/A | N/A | N/A | ❌ Not working |
-| **With Thesycon Drivers** | XingCore ASIO | ASIO | PCM + DSD64-512 | ✅ Working |
-| **Future libusbK Driver** | Custom ASIO | ASIO | PCM + DSD64-512 | 🚧 Planned |
-| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
-
-**DSD Support:**
-- DSD64: 2.8224 MHz
-- DSD128: 5.6448 MHz
-- DSD256: 11.2896 MHz
-- DSD512: 22.5792 MHz
-
-**Features:**
-- ✅ Native DSD via Alt Setting 2 (RAW_DATA format)
-- ✅ Thesycon/XingCore ASIO driver compatible
-- ✅ Ready for custom libusbK ASIO driver
-- ✅ Volume controls disabled (DSD requirement)
-
-**Limitations:**
-- ❌ Does not work without drivers in Windows
-- ❌ Requires proprietary driver installation
-
----
-
-
 ### Windows Driver Installation
 
 **Without Drivers (pcm-standard):**
