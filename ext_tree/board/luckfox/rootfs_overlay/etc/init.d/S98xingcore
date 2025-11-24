@@ -70,10 +70,12 @@ start() {
     # p_chmask controls EPIN (capture/mic), c_chmask controls EPOUT (playback/speaker)
     echo 0 > functions/uac2.usb0/p_chmask  # Disable p (actually capture/mic)
     echo 3 > functions/uac2.usb0/c_chmask  # Enable c (actually playback/speaker)
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/c_srate
+    # PCM rates up to 768kHz + native DSD64-512
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.usb0/c_srate
     echo 4 > functions/uac2.usb0/c_ssize
-    echo 1 > functions/uac2.usb0/c_mute_present
-    echo 1 > functions/uac2.usb0/c_volume_present
+    # DSD playback requires NO volume control (1-bit format incompatible with DSP processing)
+    echo 0 > functions/uac2.usb0/c_mute_present
+    echo 0 > functions/uac2.usb0/c_volume_present
     echo 1 > functions/uac2.usb0/c_hs_bint  # bInterval=1 (c controls playback in stock driver)
 
     # КРИТИЧЕСКИ ВАЖНО: Минимальные параметры для wMaxPacketSize < 1024
