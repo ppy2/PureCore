@@ -242,7 +242,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockch
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-23 22:49:12.025833405 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-24 19:30:33.573086463 +0300
 @@ -114,7 +114,7 @@
  	[STR_USB_IT].s = "USBH Out",
  	[STR_IO_IT].s = "USBD Out",
@@ -252,7 +252,77 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	[STR_FU_IN].s = "Capture Volume",
  	[STR_FU_OUT].s = "Playback Volume",
  	[STR_AS_OUT_ALT0].s = "Playback Inactive",
-@@ -987,6 +987,10 @@
+@@ -342,6 +342,38 @@
+ 	.bFormatType = UAC_FORMAT_TYPE_I,
+ };
+ 
++/* ===== DSD Support: Alternate Setting 2 with RAW_DATA format ===== */
++/* Interface Descriptor for DSD (Alt Setting 2) */
++static struct usb_interface_descriptor std_as_out_if2_desc = {
++	.bLength = sizeof std_as_out_if2_desc,
++	.bDescriptorType = USB_DT_INTERFACE,
++	.bAlternateSetting = 2,
++	.bNumEndpoints = 1,
++	.bInterfaceClass = USB_CLASS_AUDIO,
++	.bInterfaceSubClass = USB_SUBCLASS_AUDIOSTREAMING,
++	.bInterfaceProtocol = UAC_VERSION_2,
++};
++
++/* Audio Stream OUT Header for DSD (RAW_DATA format) */
++static struct uac2_as_header_descriptor as_out_hdr2_desc = {
++	.bLength = sizeof as_out_hdr2_desc,
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++	.bDescriptorSubtype = UAC_AS_GENERAL,
++	/* .bTerminalLink = DYNAMIC */
++	.bmControls = 0,
++	.bFormatType = UAC_FORMAT_TYPE_I,
++	.bmFormats = cpu_to_le32(UAC2_FORMAT_TYPE_I_RAW_DATA),  /* 0x80000000 for DSD */
++	.iChannelNames = 0,
++};
++
++/* Audio USB_OUT Format Type for DSD */
++static struct uac2_format_type_i_descriptor as_out_fmt2_desc = {
++	.bLength = sizeof as_out_fmt2_desc,
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++	.bDescriptorSubtype = UAC_FORMAT_TYPE,
++	.bFormatType = UAC_FORMAT_TYPE_I,
++};
++
+ /* STD AS ISO OUT Endpoint */
+ static struct usb_endpoint_descriptor fs_epout_desc = {
+ 	.bLength = USB_DT_ENDPOINT_SIZE,
+@@ -886,6 +918,22 @@
+ 			if (epin_fback_desc_comp)
+ 				headers[i++] = USBDHDR(epin_fback_desc_comp);
+ 		}
++
++		/* DSD support: Alt Setting 2 with RAW_DATA format */
++		headers[i++] = USBDHDR(&std_as_out_if2_desc);
++		headers[i++] = USBDHDR(&as_out_hdr2_desc);
++		headers[i++] = USBDHDR(&as_out_fmt2_desc);
++		headers[i++] = USBDHDR(epout_desc);
++		if (epout_desc_comp)
++			headers[i++] = USBDHDR(epout_desc_comp);
++
++		headers[i++] = USBDHDR(&as_iso_out_desc);
++
++		if (EPOUT_FBACK_IN_EN(opts)) {
++			headers[i++] = USBDHDR(epin_fback_desc);
++			if (epin_fback_desc_comp)
++				headers[i++] = USBDHDR(epin_fback_desc_comp);
++		}
+ 	}
+ 
+ 	if (EPIN_EN(opts)) {
+@@ -945,6 +993,7 @@
+ 	}
+ 
+ 	as_out_hdr_desc.bTerminalLink = usb_out_it_desc.bTerminalID;
++	as_out_hdr2_desc.bTerminalLink = usb_out_it_desc.bTerminalID;  /* DSD Alt Setting 2 */
+ 	as_in_hdr_desc.bTerminalLink = usb_in_ot_desc.bTerminalID;
+ 
+ 	iad_desc.bInterfaceCount = 1;
+@@ -987,6 +1036,10 @@
  	struct f_uac2_opts *opts = g_audio_to_uac2_opts(agdev);
  	const char *msg = NULL;
  
@@ -263,7 +333,40 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	if (!opts->p_chmask && !opts->c_chmask)
  		msg = "no playback and capture channels";
  	else if (opts->p_chmask & ~UAC2_CHANNEL_MASK)
-@@ -1629,8 +1633,8 @@
+@@ -1074,6 +1127,7 @@
+ 	io_out_ot_desc.iTerminal = us[STR_IO_OT].id;
+ 	std_as_out_if0_desc.iInterface = us[STR_AS_OUT_ALT0].id;
+ 	std_as_out_if1_desc.iInterface = us[STR_AS_OUT_ALT1].id;
++	std_as_out_if2_desc.iInterface = 0;  /* DSD Alt Setting 2 - no string descriptor like original XingCore */
+ 	std_as_in_if0_desc.iInterface = us[STR_AS_IN_ALT0].id;
+ 	std_as_in_if1_desc.iInterface = us[STR_AS_IN_ALT1].id;
+ 
+@@ -1096,10 +1150,14 @@
+ 	io_in_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
+ 	as_out_hdr_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
+ 	as_out_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
++	as_out_hdr2_desc.bNrChannels = num_channels(uac2_opts->c_chmask);  /* DSD Alt 2 same channels as Alt 1 */
++	as_out_hdr2_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
+ 	as_in_hdr_desc.bNrChannels = num_channels(uac2_opts->p_chmask);
+ 	as_in_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
+ 	as_out_fmt1_desc.bSubslotSize = uac2_opts->c_ssize;
+ 	as_out_fmt1_desc.bBitResolution = uac2_opts->c_ssize * 8;
++	as_out_fmt2_desc.bSubslotSize = uac2_opts->c_ssize;  /* DSD Alt 2 same size as Alt 1 */
++	as_out_fmt2_desc.bBitResolution = uac2_opts->c_ssize * 8;
+ 	as_in_fmt1_desc.bSubslotSize = uac2_opts->p_ssize;
+ 	as_in_fmt1_desc.bBitResolution = uac2_opts->p_ssize * 8;
+ 	if (FUOUT_EN(uac2_opts)) {
+@@ -1142,7 +1200,9 @@
+ 		}
+ 		std_as_out_if0_desc.bInterfaceNumber = ret;
+ 		std_as_out_if1_desc.bInterfaceNumber = ret;
++		std_as_out_if2_desc.bInterfaceNumber = ret;  /* DSD Alt Setting 2 shares same interface */
+ 		std_as_out_if1_desc.bNumEndpoints = 1;
++		std_as_out_if2_desc.bNumEndpoints = 1;
+ 		uac2->as_out_intf = ret;
+ 		uac2->as_out_alt = 0;
+ 
+@@ -1629,8 +1689,8 @@
  			}
  			rs.wNumSubRanges = cpu_to_le16(wNumSubRanges);
  			value = min_t(unsigned int, w_length, ranges_lay3_size(rs));
@@ -433,6 +536,16 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  obj-$(CONFIG_USB_F_TCM)		+= usb_f_tcm.o
 +usb_f_vendor-y			:= f_vendor.o
 +obj-$(CONFIG_USB_F_VENDOR)	+= usb_f_vendor.o
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h
+--- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h	2025-11-24 12:14:14.734086447 +0300
+@@ -5,5 +5,5 @@
+ #ifndef UAC_COMMON_H
+ #define UAC_COMMON_H
+ 
+-#define UAC_MAX_RATES 10 /* maximum number of rates configurable by f_uac1/2 */
++#define UAC_MAX_RATES 16 /* maximum number of rates configurable by f_uac1/2 - increased for DSD64-512 support */
+ #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
 +++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-23 09:53:36.250238103 +0300
@@ -7766,3 +7879,15 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
 -MODULE_DEVICE_TABLE(of, rockchip_i2s_tdm_match);
 +MODULE_DEVICE_TABLE(of, rockchip_i2s_tdm_match);
 \ No newline at end of file
+diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/usb/quirks.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/usb/quirks.c
+--- linux-rockchip-rk-6.1-rkr6.1_orig/sound/usb/quirks.c	2025-07-03 13:59:45.000000000 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/usb/quirks.c	2025-11-24 17:43:05.722086344 +0300
+@@ -2105,6 +2105,8 @@
+ 		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
+ 	DEVICE_FLG(0x13e5, 0x0001, /* Serato Phono */
+ 		   QUIRK_FLAG_IGNORE_CTL_ERROR),
++	DEVICE_FLG(0x152a, 0x8852, /* XingCore USB Hi-Resolution Audio */
++		   QUIRK_FLAG_DSD_RAW),
+ 	DEVICE_FLG(0x154e, 0x1002, /* Denon DCD-1500RE */
+ 		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY),
+ 	DEVICE_FLG(0x154e, 0x1003, /* Denon DA-300USB */
