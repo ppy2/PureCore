@@ -1,0 +1,130 @@
+#!/bin/sh
+
+# PureCore UAC2 Gadget Auto-start Script - ПОЛНАЯ ЭМУЛЯЦИЯ
+# Запускается последним в автозагрузке
+#
+# ЭМУЛИРОВАНО через configfs:
+# ✓ Device Qualifier: 0x00/0x00/0x00
+# ✓ Self-powered, 100mA
+# ✓ Минимальные string descriptors
+# ✓ iConfiguration = 0x00, iFunction = 0x00
+#
+# ТРЕБУЮТ ПАТЧЕЙ ЯДРА (f_uac2.c):
+# ✗ HIGH BANDWIDTH mode (2x800 vs 1x808) - line 786-827
+# ✗ Lock Delay (0x02, 0x0800) - нужны configfs атрибуты
+# ✗ Вторая vendor-specific конфигурация
+
+start() {
+    echo "Starting PureCore UAC2 gadget..."
+    sleep 2  # Даем время на инициализацию USB
+
+    # Проверяем доступен ли UDC
+    if [ ! -d /sys/class/udc ]; then
+        echo "UDC not available, skipping PureCore gadget"
+        return 1
+    fi
+
+    # Создаем PureCore гаджет
+    cd /sys/kernel/config/usb_gadget
+
+    # Полностью удаляем старый gadget если существует
+    if [ -d "purecore" ]; then
+        cd purecore
+        echo "" > UDC 2>/dev/null
+        rm -f configs/c.1/uac2.usb0 2>/dev/null
+        rm -f configs/c.2/vendor.0 2>/dev/null
+        rmdir configs/c.1 2>/dev/null
+        rmdir configs/c.2 2>/dev/null
+        rmdir functions/uac2.usb0 2>/dev/null
+        rmdir functions/vendor.0 2>/dev/null
+        rmdir strings/0x409 2>/dev/null
+        cd ..
+        rmdir purecore 2>/dev/null
+    fi
+
+    mkdir -p purecore
+    cd purecore
+
+    # Device Descriptor (оригинальные PureCore ID)
+    echo 0x152A > idVendor
+    echo 0x8852 > idProduct
+    echo 0x0312 > bcdDevice
+    echo 0x0200 > bcdUSB
+    # Standard UAC2: Device Class 0x00 (defined by interfaces)
+    echo 0x00 > bDeviceClass      # Defined by interfaces
+    echo 0x00 > bDeviceSubClass   # Defined by interfaces
+    echo 0x00 > bDeviceProtocol   # Defined by interfaces
+    echo 64 > bMaxPacketSize0
+
+    # Device Strings - минимальные как в оригинале
+    mkdir -p strings/0x409
+    echo "PureCore" > strings/0x409/manufacturer
+    echo "PureCore USB Hi-Resolution Audio" > strings/0x409/product
+    # Serial number = 0x00 (пустой) как в оригинале
+    echo "" > strings/0x409/serialnumber
+
+    # UAC2 Function
+    mkdir -p functions/uac2.usb0
+
+    # CRITICAL FIX: Stock f_uac2.c has REVERSED naming!
+    # p_chmask controls EPIN (capture/mic), c_chmask controls EPOUT (playback/speaker)
+    echo 0 > functions/uac2.usb0/p_chmask  # Disable p (actually capture/mic)
+    echo 3 > functions/uac2.usb0/c_chmask  # Enable c (actually playback/speaker)
+    # PCM rates up to 768kHz + native DSD64-512 (for Linux Alt Setting 2)
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,1411200,2822400,5644800,11289600,22579200" > functions/uac2.usb0/c_srate
+    echo 4 > functions/uac2.usb0/c_ssize
+    echo 1 > functions/uac2.usb0/c_mute_present
+    echo 1 > functions/uac2.usb0/c_volume_present
+    echo 1 > functions/uac2.usb0/c_hs_bint  # bInterval=1 (c controls playback in stock driver)
+
+    # Fix p_volume parameters even though p_chmask=0 (kernel validates all params regardless)
+    echo 0 > functions/uac2.usb0/p_volume_min
+    echo 256 > functions/uac2.usb0/p_volume_max
+    echo 256 > functions/uac2.usb0/p_volume_res
+
+    # КРИТИЧЕСКИ ВАЖНО: Минимальные параметры для wMaxPacketSize < 1024
+    echo 2 > functions/uac2.usb0/req_number    # USB request буферы (минимально для <1024)
+    # PureCore emulation: fb_max=5 для wMaxPacketSize ≈ 768 байт
+    echo 50 > functions/uac2.usb0/fb_max         # Async overhead (минимально для стабильности)
+
+    # Function name - показывается в Windows как имя устройства
+    echo "PureCore" > functions/uac2.usb0/function_name
+
+    # Configuration 1 - UAC2 Audio (Self-powered)
+    mkdir -p configs/c.1
+    echo 0xC0 > configs/c.1/bmAttributes  # Self-powered
+    echo 100 > configs/c.1/MaxPower       # 100mA
+    # iConfiguration = 0x00 (не создаём strings!)
+    ln -s functions/uac2.usb0 configs/c.1/
+
+    # Configuration 2 - DISABLED for standard UAC2 (no PureCore driver needed)
+    # mkdir -p functions/vendor.0
+    # mkdir -p configs/c.2
+    # echo 0xC0 > configs/c.2/bmAttributes  # Self-powered
+    # echo 100 > configs/c.2/MaxPower       # 100mA
+    # iConfiguration = 0x00 (не создаём strings!)
+    # ln -s functions/vendor.0 configs/c.2/
+
+    # Enable gadget
+    ls /sys/class/udc > UDC
+
+    echo "PureCore UAC2 gadget with 2 configurations started"
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    echo "Stopping PureCore gadget..."
+    cd /sys/kernel/config/usb_gadget/purecore 2>/dev/null && echo "" > UDC 2>/dev/null
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
