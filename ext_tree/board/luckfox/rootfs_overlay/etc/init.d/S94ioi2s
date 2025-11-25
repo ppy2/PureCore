@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# sshd        Config I2S direction.
+#
+
+start() {
+    # Check if configuration file exists
+    if [ ! -f /etc/i2s.conf ]; then
+        echo "Config file /etc/i2s.conf not found"
+        exit 1
+    fi
+
+    # Extract MODE value, removing any whitespace
+    MODE=$(grep '^MODE=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
+    if [ -z "$MODE" ]; then
+        echo "MODE not set in /etc/i2s.conf"
+        exit 1
+    fi
+
+    printf "Configuring I2S Outside: "
+    if [ "$MODE" = "ext" ]; then
+        io -4 0xff000004 0x007c001c
+    elif [ "$MODE" = "pll" ]; then
+        io -4 0xff000004 0x007c003c
+    else
+        echo "Invalid MODE in /etc/i2s.conf"
+        exit 1
+    fi
+    echo "OK"
+}
+
+stop() {
+    printf "Reading I2S direction: "
+    io -4 0xff000004
+    echo "OK"
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart|reload)
+    restart
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?
+

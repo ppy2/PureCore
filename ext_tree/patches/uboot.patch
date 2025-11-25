@@ -1,0 +1,12 @@
+diff -Naur original_dir/Makefile modified_dir/Makefile
+--- original_dir/Makefile	2024-10-18 09:21:11.000000000 +0300
++++ modified_dir/Makefile	2025-01-25 16:33:47.994852915 +0300
+@@ -367,7 +367,7 @@
+ KBUILD_CFLAGS   := -Wall -Wstrict-prototypes \
+ 		   -Wno-format-security \
+ 		   -fno-builtin -ffreestanding
+-KBUILD_CFLAGS	+= -fshort-wchar -Werror
++KBUILD_CFLAGS	+= -fshort-wchar 
+ KBUILD_AFLAGS   := -D__ASSEMBLY__
+ 
+ # Read UBOOTRELEASE from include/config/uboot.release (if it exists)

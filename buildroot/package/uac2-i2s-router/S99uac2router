@@ -1,0 +1,40 @@
+#!/bin/sh
+
+DAEMON="uac2_router"
+PIDFILE=/var/run/$DAEMON.pid
+
+start() {
+	printf "Starting $DAEMON: "
+	start-stop-daemon -S -q -b -m -p $PIDFILE --exec /usr/bin/$DAEMON
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+}
+
+stop() {
+	printf "Stopping $DAEMON: "
+	start-stop-daemon -K -q -p $PIDFILE
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	rm -f $PIDFILE
+}
+
+restart() {
+	stop
+	sleep 1
+	start
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		restart
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+		exit 1
+esac
+
+exit $?

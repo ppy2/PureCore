@@ -1,0 +1,3 @@
+mtdparts=spi-nand0:262144(env),262144@262144(idblock),524288(uboot),4194304(boot),125829120(rootfs)
+sys_bootargs=ubi.mtd=4 root=ubi0:rootfs rootfstype=ubifs rk_dma_heap_cma=24M
+bootcmd=mtd read boot 0x00008000 0 0x360000; mtd read boot 0x00c00000 0x003C0000 0x12000; bootz 0x00008000 - 0x00c00000

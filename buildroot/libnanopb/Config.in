@@ -1,0 +1,8 @@
+config BR2_PACKAGE_LIBNANOPB
+	bool "libnanopb"
+	help
+	  Nanopb is a small code-size Protocol Buffers implementation
+	  in ansi C. It is especially suitable for use in microcontrollers,
+	  but fits any memory-constrained system.
+
+	  https://github.com/nanopb/nanopb
