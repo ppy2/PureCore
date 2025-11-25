@@ -84,7 +84,11 @@ start() {
 
     # КРИТИЧЕСКИ ВАЖНО: Минимальные параметры для wMaxPacketSize < 1024
     echo 2 > functions/uac2.usb0/req_number    # USB request буферы (минимально для <1024)
+<<<<<<< HEAD
     # PureCore emulation: fb_max=50 для wMaxPacketSize ≈ 768 байт
+=======
+    # PureCore emulation: fb_max=5 для wMaxPacketSize ≈ 768 байт
+>>>>>>> master
     echo 50 > functions/uac2.usb0/fb_max         # Async overhead (минимально для стабильности)
 
     # Function name - показывается в Windows как имя устройства

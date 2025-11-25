@@ -328,7 +328,9 @@ static int configure_audio(unsigned int rate, int card, char **buffer, size_t *b
 
     close_pcms();
 
-    /* UAC2 capture - всегда PCM S32_LE (USB передает DSD как "raw" 32-bit data) */
+    /* UAC2 capture - ALWAYS use PCM S32_LE format
+     * UAC2 gadget RAW_DATA (Alt Setting 2) transmits DSD as raw 32-bit data,
+     * which ALSA sees as PCM format. We convert to DSD for I2S if needed. */
     char uac_device[32];
     sprintf(uac_device, "hw:%d,0", card);
     if (setup_pcm(&pcm_capture, uac_device, SND_PCM_STREAM_CAPTURE,

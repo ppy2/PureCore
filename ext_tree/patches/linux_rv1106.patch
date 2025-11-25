@@ -242,7 +242,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/phy/rockch
  	phy_update_bits(rphy->phy_base + 0x1a4, GENMASK(7, 4), (0x01 << 4));
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/f_uac2.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-24 19:30:33.573086463 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/f_uac2.c	2025-11-25 13:48:40.815314748 +0300
 @@ -114,7 +114,7 @@
  	[STR_USB_IT].s = "USBH Out",
  	[STR_IO_IT].s = "USBD Out",
@@ -262,7 +262,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	.bLength = sizeof std_as_out_if2_desc,
 +	.bDescriptorType = USB_DT_INTERFACE,
 +	.bAlternateSetting = 2,
-+	.bNumEndpoints = 1,
++	.bNumEndpoints = 2,  /* data OUT + feedback IN, like original XingCore */
 +	.bInterfaceClass = USB_CLASS_AUDIO,
 +	.bInterfaceSubClass = USB_SUBCLASS_AUDIOSTREAMING,
 +	.bInterfaceProtocol = UAC_VERSION_2,
@@ -291,7 +291,50 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  /* STD AS ISO OUT Endpoint */
  static struct usb_endpoint_descriptor fs_epout_desc = {
  	.bLength = USB_DT_ENDPOINT_SIZE,
-@@ -886,6 +918,22 @@
+@@ -730,7 +762,8 @@
+ 
+ 	case USB_SPEED_HIGH:
+ 	case USB_SPEED_SUPER:
+-		max_size_ep = 1024;
++		/* USB 2.0 HS supports high-bandwidth isochronous: up to 3 transactions per microframe */
++		max_size_ep = 3072;  /* 3 × 1024 bytes for DSD support */
+ 		if (is_playback)
+ 			opts_bint = uac2_opts->p_hs_bint;
+ 		else
+@@ -771,7 +804,31 @@
+ 		max_size_bw = max_size_ep;
+ 	}
+ 
+-	ep_desc->wMaxPacketSize = cpu_to_le16(max_size_bw);
++	/* USB 2.0 HS high-bandwidth mode: encode multiple transactions in wMaxPacketSize bits 12-11 */
++	if (speed == USB_SPEED_HIGH || speed == USB_SPEED_SUPER) {
++		u16 pkt_size;
++		u8 mult;  /* additional transactions per microframe */
++
++		if (max_size_bw <= 1024) {
++			/* Single transaction: bits 12-11 = 00 */
++			pkt_size = max_size_bw;
++		} else if (max_size_bw <= 2048) {
++			/* 2 transactions: bits 12-11 = 01, base size = total/2 */
++			mult = 1;  /* 0=1 transaction, 1=2 transactions, 2=3 transactions */
++			pkt_size = ((max_size_bw + 1) / 2) | (mult << 11);
++		} else {
++			/* 3 transactions: bits 12-11 = 10, base size = total/3 */
++			mult = 2;  /* 3 transactions total */
++			pkt_size = ((max_size_bw + 2) / 3) | (mult << 11);
++		}
++		ep_desc->wMaxPacketSize = cpu_to_le16(pkt_size);
++
++		dev_dbg(dev, "%s %s: High-bandwidth mode: wMaxPacketSize=0x%04x (%d bytes × %d transactions)\n",
++			speed_names[speed], dir, pkt_size, pkt_size & 0x7FF, (pkt_size >> 11) + 1);
++	} else {
++		ep_desc->wMaxPacketSize = cpu_to_le16(max_size_bw);
++	}
++
+ 	ep_desc->bInterval = bint;
+ 
+ 	return 0;
+@@ -886,6 +943,22 @@
  			if (epin_fback_desc_comp)
  				headers[i++] = USBDHDR(epin_fback_desc_comp);
  		}
@@ -314,7 +357,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	}
  
  	if (EPIN_EN(opts)) {
-@@ -945,6 +993,7 @@
+@@ -945,6 +1018,7 @@
  	}
  
  	as_out_hdr_desc.bTerminalLink = usb_out_it_desc.bTerminalID;
@@ -322,7 +365,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	as_in_hdr_desc.bTerminalLink = usb_in_ot_desc.bTerminalID;
  
  	iad_desc.bInterfaceCount = 1;
-@@ -987,6 +1036,10 @@
+@@ -987,6 +1061,10 @@
  	struct f_uac2_opts *opts = g_audio_to_uac2_opts(agdev);
  	const char *msg = NULL;
  
@@ -333,7 +376,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	if (!opts->p_chmask && !opts->c_chmask)
  		msg = "no playback and capture channels";
  	else if (opts->p_chmask & ~UAC2_CHANNEL_MASK)
-@@ -1074,6 +1127,7 @@
+@@ -1074,6 +1152,7 @@
  	io_out_ot_desc.iTerminal = us[STR_IO_OT].id;
  	std_as_out_if0_desc.iInterface = us[STR_AS_OUT_ALT0].id;
  	std_as_out_if1_desc.iInterface = us[STR_AS_OUT_ALT1].id;
@@ -341,7 +384,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	std_as_in_if0_desc.iInterface = us[STR_AS_IN_ALT0].id;
  	std_as_in_if1_desc.iInterface = us[STR_AS_IN_ALT1].id;
  
-@@ -1096,10 +1150,14 @@
+@@ -1096,10 +1175,14 @@
  	io_in_it_desc.bmChannelConfig = cpu_to_le32(uac2_opts->p_chmask);
  	as_out_hdr_desc.bNrChannels = num_channels(uac2_opts->c_chmask);
  	as_out_hdr_desc.bmChannelConfig = cpu_to_le32(uac2_opts->c_chmask);
@@ -356,7 +399,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	as_in_fmt1_desc.bSubslotSize = uac2_opts->p_ssize;
  	as_in_fmt1_desc.bBitResolution = uac2_opts->p_ssize * 8;
  	if (FUOUT_EN(uac2_opts)) {
-@@ -1142,7 +1200,9 @@
+@@ -1142,7 +1225,9 @@
  		}
  		std_as_out_if0_desc.bInterfaceNumber = ret;
  		std_as_out_if1_desc.bInterfaceNumber = ret;
@@ -366,7 +409,34 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  		uac2->as_out_intf = ret;
  		uac2->as_out_alt = 0;
  
-@@ -1629,8 +1689,8 @@
+@@ -1154,6 +1239,7 @@
+ 			ss_epout_desc.bmAttributes =
+ 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC;
+ 			std_as_out_if1_desc.bNumEndpoints++;
++			std_as_out_if2_desc.bNumEndpoints++;  /* DSD Alt Setting 2 also needs feedback endpoint */
+ 		} else {
+ 			fs_epout_desc.bmAttributes =
+ 			  USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE;
+@@ -1424,8 +1510,8 @@
+ 	struct device *dev = &gadget->dev;
+ 	int ret = 0;
+ 
+-	/* No i/f has more than 2 alt settings */
+-	if (alt > 1) {
++	/* No i/f has more than 3 alt settings (0, 1, 2) */
++	if (alt > 2) {
+ 		dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+ 		return -EINVAL;
+ 	}
+@@ -1448,6 +1534,7 @@
+ 	}
+ 
+ 	if (intf == uac2->as_out_intf) {
++		dev_info(dev, "AS_OUT: Switching to Alt Setting %u (0=inactive, 1=PCM, 2=DSD)\n", alt);
+ 		uac2->as_out_alt = alt;
+ 
+ 		if (alt)
+@@ -1629,8 +1716,8 @@
  			}
  			rs.wNumSubRanges = cpu_to_le16(wNumSubRanges);
  			value = min_t(unsigned int, w_length, ranges_lay3_size(rs));
@@ -538,17 +608,17 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +obj-$(CONFIG_USB_F_VENDOR)	+= usb_f_vendor.o
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h	2025-11-24 12:14:14.734086447 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h	2025-11-25 09:15:56.451110545 +0300
 @@ -5,5 +5,5 @@
  #ifndef UAC_COMMON_H
  #define UAC_COMMON_H
  
 -#define UAC_MAX_RATES 10 /* maximum number of rates configurable by f_uac1/2 */
-+#define UAC_MAX_RATES 16 /* maximum number of rates configurable by f_uac1/2 - increased for DSD64-512 support */
++#define UAC_MAX_RATES 16 /* increased for DSD64-512 support */
  #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-23 09:53:36.250238103 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-25 13:57:21.288039669 +0300
 @@ -82,6 +82,13 @@
  	struct snd_card *card;
  	struct snd_pcm *pcm;
@@ -595,32 +665,73 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  
-@@ -516,6 +532,7 @@
+@@ -516,8 +532,38 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
 +	int old_rate;
++	int actual_rate;  /* Rate to expose in sysfs (native DSD or PCM) */
++
++	dev_info(&audio_dev->gadget->dev, "HOST requested rate: %d Hz\n", srate);
++
++	/* UAC2 RAW_DATA (DSD) uses PCM-equivalent rates:
++	 * DSD64  (2822400 Hz) → 88200 Hz  (÷32)
++	 * DSD128 (5644800 Hz) → 176400 Hz (÷32)
++	 * DSD256 (11289600 Hz) → 352800 Hz (÷32)
++	 * DSD512 (22579200 Hz) → 705600 Hz (÷32)
++	 * Convert to native DSD rate for sysfs when Alt Setting 2 is active.
++	 * Note: We cannot directly access as_out_alt here, so we check if
++	 * rate×32 exists in c_srates list (DSD rates) - if yes, assume DSD mode.
++	 */
++	actual_rate = srate;
++
++	/* Check if this might be DSD (PCM-equivalent rate with native DSD in list) */
++	if (srate == 88200 || srate == 176400 || srate == 352800 || srate == 705600) {
++		int dsd_rate = srate * 32;
++		/* Check if native DSD rate exists in c_srates */
++		for (i = 0; i < UAC_MAX_RATES; i++) {
++			if (params->c_srates[i] == dsd_rate) {
++				dev_info(&audio_dev->gadget->dev, "DSD mode detected: PCM-equivalent %d Hz → Native DSD %d Hz\n",
++					srate, dsd_rate);
++				actual_rate = dsd_rate;
++				break;
++			}
++			if (params->c_srates[i] == 0)
++				break;
++		}
++	}
  
- 	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
+-	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
  	prm = &uac->c_prm;
-@@ -526,6 +543,16 @@
+ 	for (i = 0; i < UAC_MAX_RATES; i++) {
+ 		if (params->c_srates[i] == srate) {
+@@ -526,12 +572,25 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_OUT] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
 +
-+			/* Update sysfs rate attribute */
++			/* Update sysfs rate attribute with native rate (DSD or PCM) */
 +			old_rate = uac->current_rate;
-+			uac->current_rate = srate;
++			uac->current_rate = actual_rate;
 +
-+			if (uac->kobj && old_rate != srate) {
++			if (uac->kobj && old_rate != actual_rate) {
 +				sysfs_notify(uac->kobj, NULL, "rate");
 +				kobject_uevent(uac->kobj, KOBJ_CHANGE);
 +			}
 +
++			dev_info(&audio_dev->gadget->dev, "Rate %d Hz ACCEPTED, sysfs shows %d Hz\n",
++				srate, actual_rate);
  			return 0;
  		}
  		if (params->c_srates[i] == 0)
-@@ -557,6 +584,7 @@
+ 			break;
+ 	}
+ 
++	dev_warn(&audio_dev->gadget->dev, "Rate %d Hz NOT FOUND in c_srates list, rejecting!\n", srate);
+ 	return -EINVAL;
+ }
+ EXPORT_SYMBOL_GPL(u_audio_set_capture_srate);
+@@ -557,6 +616,7 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
@@ -628,7 +739,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
  	prm = &uac->p_prm;
-@@ -567,6 +595,16 @@
+@@ -567,6 +627,16 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_IN] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
@@ -645,12 +756,32 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  			return 0;
  		}
  		if (params->p_srates[i] == 0)
-@@ -654,6 +692,13 @@
+@@ -654,6 +724,33 @@
  
  	set_active(&uac->c_prm, true);
  
 +	/* Update sysfs rate (format and channels are static - set in uac_pcm_open) */
-+	uac->current_rate = prm->srate;
++	/* DSD mode: convert PCM-equivalent rate to native DSD */
++	{
++		int actual_rate = prm->srate;
++		int i;
++
++		if (prm->srate == 88200 || prm->srate == 176400 ||
++		    prm->srate == 352800 || prm->srate == 705600) {
++			int dsd_rate = prm->srate * 32;
++			for (i = 0; i < UAC_MAX_RATES; i++) {
++				if (params->c_srates[i] == dsd_rate) {
++					actual_rate = dsd_rate;
++					break;
++				}
++				if (params->c_srates[i] == 0)
++					break;
++			}
++		}
++
++		uac->current_rate = actual_rate;
++	}
++
 +	if (uac->kobj) {
 +		sysfs_notify(uac->kobj, NULL, "rate");
 +		kobject_uevent(uac->kobj, KOBJ_CHANGE);
@@ -659,12 +790,32 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	ep_fback = audio_dev->in_ep_fback;
  	if (!ep_fback)
  		return 0;
-@@ -807,6 +852,13 @@
+@@ -807,6 +904,33 @@
  
  	set_active(&uac->p_prm, true);
  
 +	/* Update sysfs rate (format and channels are static - set in uac_pcm_open) */
-+	uac->current_rate = prm->srate;
++	/* DSD mode: convert PCM-equivalent rate to native DSD */
++	{
++		int actual_rate = prm->srate;
++		int i;
++
++		if (prm->srate == 88200 || prm->srate == 176400 ||
++		    prm->srate == 352800 || prm->srate == 705600) {
++			int dsd_rate = prm->srate * 32;
++			for (i = 0; i < UAC_MAX_RATES; i++) {
++				if (params->c_srates[i] == dsd_rate) {
++					actual_rate = dsd_rate;
++					break;
++				}
++				if (params->c_srates[i] == 0)
++					break;
++			}
++		}
++
++		uac->current_rate = actual_rate;
++	}
++
 +	if (uac->kobj) {
 +		sysfs_notify(uac->kobj, NULL, "rate");
 +		kobject_uevent(uac->kobj, KOBJ_CHANGE);
@@ -673,7 +824,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  EXPORT_SYMBOL_GPL(u_audio_start_playback);
-@@ -1423,6 +1475,40 @@
+@@ -1423,6 +1547,40 @@
  	schedule_delayed_work(&g_audio->ppm_work, 1 * HZ);
  }
  
@@ -714,7 +865,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int g_audio_setup(struct g_audio *g_audio, const char *pcm_name,
  					const char *card_name)
  {
-@@ -1511,6 +1597,11 @@
+@@ -1511,6 +1669,11 @@
  
  	uac->card = card;
  
@@ -726,7 +877,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/*
  	 * Create first PCM device
  	 * Create a substream only for non-zero channel streams
-@@ -1674,6 +1765,26 @@
+@@ -1674,6 +1837,26 @@
  	if (err < 0)
  		goto snd_fail;
  
@@ -753,7 +904,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
  					"%s", g_audio->uac->card->longname);
  	if (IS_ERR(g_audio->device)) {
-@@ -1718,6 +1829,12 @@
+@@ -1718,6 +1901,12 @@
  	uac = g_audio->uac;
  	g_audio->uac = NULL;
  
@@ -766,7 +917,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	card = uac->card;
  	if (card)
  		snd_card_free_when_closed(card);
-@@ -1745,13 +1862,6 @@
+@@ -1745,13 +1934,6 @@
  }
  module_init(u_audio_init);
  
@@ -854,7 +1005,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/d
  };
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-17 20:16:51.398373904 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-25 14:28:19.837084348 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver
@@ -920,7 +1071,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
  
  #define DRV_NAME "rockchip-i2s-tdm"
  
-@@ -33,518 +48,596 @@
+@@ -33,518 +48,589 @@
  #define HAVE_SYNC_RESET
  #endif
  
@@ -1287,23 +1438,16 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
 +/* Calculate proper BCLK frequency for DSD formats */
 +static unsigned int calculate_dsd_bclk(snd_pcm_format_t format, unsigned int sample_rate)
 +{
-+    /* CORRECT BCLK frequencies for DSD (determine by sample_rate):
-+     * DSD64: BCLK = 2.8224 MHz 
-+     * DSD128: BCLK = 5.6448 MHz  
-+     * DSD256: BCLK = 11.2896 MHz
-+     * DSD512: BCLK = 22.5792 MHz
++    /* For DSD: BCLK = sample_rate (native DSD rate)
++     * DSD64:  2822400 Hz
++     * DSD128: 5644800 Hz
++     * DSD256: 11289600 Hz
++     * DSD512: 22579200 Hz
 +     */
-+    
-+    /* Determine DSD type by sample_rate */
-+    if (sample_rate <= 88200) {
-+        return 2822400;  /* DSD64: 2.8224 MHz - CORRECT! */
-+    } else if (sample_rate <= 176400) {
-+        return 5644800;  /* DSD128: 5.6448 MHz */
-+    } else if (sample_rate <= 352800) {
-+        return 11289600; /* DSD256: 11.2896 MHz */
-+    } else {
-+        return 22579200; /* DSD512: 22.5792 MHz */
-+    }
++
++    printk(KERN_INFO "rockchip-i2s-tdm: calculate_dsd_bclk: sample_rate=%u → BCLK=%u\n",
++           sample_rate, sample_rate);
++    return sample_rate;
 +}
 +
 +static void rockchip_i2s_tdm_mute_post_work(struct work_struct *work);
@@ -1957,7 +2101,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
  }
  
  /*
-@@ -554,3024 +647,3251 @@
+@@ -554,3024 +640,3258 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -4382,7 +4526,14 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
 +        }
 +
 +        div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
-+        div_lrck = bclk_rate / params_rate(params);
++
++        /* For DSD: div_lrck = bits per frame (32 for DSD_U32_LE) */
++        if (is_dsd(params_format(params))) {
++            div_lrck = 32;  /* 32 DSD bits per frame in DSD_U32_LE format */
++        } else {
++            div_lrck = bclk_rate / params_rate(params);
++        }
++
 +        dev_info(i2s_tdm->dev, "Clock dividers: mclk_rate=%u, bclk_rate=%u, div_bclk=%u, div_lrck=%u\n",
 +                 mclk_rate, bclk_rate, div_bclk, div_lrck);
 +    }
