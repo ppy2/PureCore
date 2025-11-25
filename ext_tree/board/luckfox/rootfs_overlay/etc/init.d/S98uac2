@@ -71,7 +71,7 @@ start() {
     echo 0 > functions/uac2.usb0/p_chmask  # Disable p (actually capture/mic)
     echo 3 > functions/uac2.usb0/c_chmask  # Enable c (actually playback/speaker)
     # PCM rates up to 768kHz + native DSD64-512 (for Linux Alt Setting 2)
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.usb0/c_srate
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,1411200,2822400,5644800,11289600,22579200" > functions/uac2.usb0/c_srate
     echo 4 > functions/uac2.usb0/c_ssize
     echo 1 > functions/uac2.usb0/c_mute_present
     echo 1 > functions/uac2.usb0/c_volume_present
@@ -84,11 +84,7 @@ start() {
 
     # КРИТИЧЕСКИ ВАЖНО: Минимальные параметры для wMaxPacketSize < 1024
     echo 2 > functions/uac2.usb0/req_number    # USB request буферы (минимально для <1024)
-<<<<<<< HEAD
-    # PureCore emulation: fb_max=50 для wMaxPacketSize ≈ 768 байт
-=======
     # PureCore emulation: fb_max=5 для wMaxPacketSize ≈ 768 байт
->>>>>>> master
     echo 50 > functions/uac2.usb0/fb_max         # Async overhead (минимально для стабильности)
 
     # Function name - показывается в Windows как имя устройства
