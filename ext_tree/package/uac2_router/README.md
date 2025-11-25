@@ -83,38 +83,6 @@ This corresponds to the operation of the original hardware PureCore and provides
 
 ```
 
-## Program Output
-
-```
-═══════════════════════════════════════════════════════════
-  UAC2 -> I2S Router (uevent-based, PureCore compatible)
-═══════════════════════════════════════════════════════════
-
-Found UAC card: /sys/class/u_audio/uac_card1
-
-UAC2 Configuration (static):
-  Format:   4 bytes (32-bit)
-  Channels: 2
-
-Listening for kobject uevent from u_audio driver...
-Waiting for rate changes...
-
-Initial rate: 96000 Hz
-
-[CONFIG] Setting up audio: 96000 Hz, 32-bit, Stereo
-  hw:1,0: 96000 Hz, S32_LE, 2 ch, period 256 frames
-  hw:0,0: 96000 Hz, S32_LE, 2 ch, period 256 frames
-[CONFIG] Audio configured successfully
-
-
-[CHANGE] Rate changed: 96000 Hz -> 192000 Hz
-
-[CONFIG] Setting up audio: 192000 Hz, 32-bit, Stereo
-  hw:1,0: 192000 Hz, S32_LE, 2 ch, period 256 frames
-  hw:0,0: 192000 Hz, S32_LE, 2 ch, period 256 frames
-[CONFIG] Audio configured successfully
-```
-
 ## Dependencies
 
 - ALSA libraries (`libasound`)
