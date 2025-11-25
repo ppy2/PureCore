@@ -29,6 +29,19 @@ cat output/images/boot.img | sshpass -p purefox ssh -p 222 root@10.147.20.35 \
   "cat > /tmp/boot.img && dd if=/tmp/boot.img of=/dev/mtdblock3 bs=1M && sync && reboot"
 ```
 
+### Flashing with SocToolKit (Alternative Method)
+
+For initial flashing or recovery, you can use the SocToolKit utility:
+
+1. Install SocToolKit on your development machine
+2. Connect LuckFox Pico via USB OTG port
+3. Power on the device in maskrom mode (hold recovery button during power-on)
+4. Use SocToolKit to flash the boot image:
+   ```bash
+   # Flash kernel and DTB to boot partition
+   sudo ./SocToolKit -d /dev/mtdblock3 -f output/images/boot.img
+   ```
+
 Critical: The system uses MTD (NAND flash), not MMC/SD card. Boot partition is `/dev/mtdblock3`.
 
 ### Kernel Development

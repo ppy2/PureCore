@@ -13,6 +13,30 @@ Embedded Linux system for Luckfox Pico PRO/MAX (RV1106) that emulates hardware i
 
 The project utilizes the internal PLL of the processor for audio clock generation. This built-in PLL allows achieving sound quality at the level of quality hardware quartz generators, providing precise timing essential for high-resolution audio playback.
 
+## Flashing Instructions
+
+### Flashing with SSH (Normal Operation)
+```bash
+# Flash boot partition (kernel + DTB) to MTD
+cat output/images/boot.img | sshpass -p purefox ssh -p 222 root@10.147.20.35 \
+  "cat > /tmp/boot.img && dd if=/tmp/boot.img of=/dev/mtdblock3 bs=1M && sync && reboot"
+```
+
+### Flashing with SocToolKit (Alternative Method)
+
+For initial flashing or recovery, you can use the SocToolKit utility:
+
+1. Install SocToolKit on your development machine
+2. Connect LuckFox Pico via USB OTG port
+3. Power on the device in maskrom mode (hold recovery button during power-on)
+4. Use SocToolKit to flash the boot image:
+   ```bash
+   # Flash kernel and DTB to boot partition
+   sudo ./SocToolKit -d /dev/mtdblock3 -f output/images/boot.img
+   ```
+
+Critical: The system uses MTD (NAND flash), not MMC/SD card. Boot partition is `/dev/mtdblock3`.
+
 <img width="644" height="712" alt="image" src="https://github.com/user-attachments/assets/83a82f51-19bb-4a88-975b-d6e05b4e3b74" />
 
 
