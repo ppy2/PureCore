@@ -34,4 +34,9 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 
 **Limitations:**
 - ⚠️ Windows without drivers: PCM only (ignores Alt Setting 2 with DSD)
+
+## Credits
+
+Special thanks to Vladimir Aleev (https://github.com/aleev/ale-linux-rv1106) for the initial idea and implementation of I2S on rv1106.
+
 ---
