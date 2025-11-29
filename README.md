@@ -21,7 +21,7 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 | Mode | Driver | Windows API | Formats | Status |
 |------|--------|-------------|---------|--------|
 | **Without Drivers** | Windows USB Audio 2.0 (built-in) | WASAPI | PCM 44.1-768 kHz | ✅ Working |
-| **With custom Drivers** | libusbk (in development) | WASAPI/ASIO | PCM + DSD64-512 | ✅ Testing needed |
+| **With custom Drivers** | libusbk (in development) | WASAPI/ASIO | PCM + DSD64-512 | 🚧 In development |
 | Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
 
 **Features:**
@@ -29,7 +29,7 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 - ✅ Standard WASAPI support for PCM
 - ✅ Linux native DSD via Alt Setting 2 (kernel quirk: QUIRK_FLAG_DSD_RAW)
 - ✅ Thesycon ASIO DSD support (requires testing)
-- ✅ Volume controls enabled (PCM compatible)
+- 🚧 Volume controls enabled (PCM compatible)
 - ✅ Universal compatibility across all platforms
 
 **Limitations:**
