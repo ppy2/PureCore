@@ -28,7 +28,7 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 - ✅ Works without driver installation (Windows 10+)
 - ✅ Standard WASAPI support for PCM
 - ✅ Linux native DSD via Alt Setting 2 (kernel quirk: QUIRK_FLAG_DSD_RAW)
-- ✅ Thesycon ASIO DSD support (requires testing)
+- ✅ Thesycon ASIO DSD support
 - 🚧 Volume controls enabled (PCM compatible)
 - ✅ Universal compatibility across all platforms
 
