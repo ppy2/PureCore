@@ -46,6 +46,8 @@ start() {
     cd purecore
 
     # Device Descriptor (original PureCore ID)
+#    echo 0x1209 > idVendor
+#    echo 0x2468 > idProduct
     echo 0x152A > idVendor
     echo 0x8852 > idProduct
     echo 0x0312 > bcdDevice

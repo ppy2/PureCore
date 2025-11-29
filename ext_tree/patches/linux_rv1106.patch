@@ -248,7 +248,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	[STR_IO_IT].s = "USBD Out",
  	[STR_USB_OT].s = "USBH In",
 -	[STR_IO_OT].s = "USBD In",
-+	[STR_IO_OT].s = "PureCore",  /* Speaker terminal - shown in Windows */
++	[STR_IO_OT].s = "XingCore",  /* Speaker terminal - shown in Windows */
  	[STR_FU_IN].s = "Capture Volume",
  	[STR_FU_OUT].s = "Playback Volume",
  	[STR_AS_OUT_ALT0].s = "Playback Inactive",
@@ -262,7 +262,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	.bLength = sizeof std_as_out_if2_desc,
 +	.bDescriptorType = USB_DT_INTERFACE,
 +	.bAlternateSetting = 2,
-+	.bNumEndpoints = 2,  /* data OUT + feedback IN, like original PureCore */
++	.bNumEndpoints = 2,  /* data OUT + feedback IN, like original XingCore */
 +	.bInterfaceClass = USB_CLASS_AUDIO,
 +	.bInterfaceSubClass = USB_SUBCLASS_AUDIOSTREAMING,
 +	.bInterfaceProtocol = UAC_VERSION_2,
@@ -380,7 +380,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	io_out_ot_desc.iTerminal = us[STR_IO_OT].id;
  	std_as_out_if0_desc.iInterface = us[STR_AS_OUT_ALT0].id;
  	std_as_out_if1_desc.iInterface = us[STR_AS_OUT_ALT1].id;
-+	std_as_out_if2_desc.iInterface = 0;  /* DSD Alt Setting 2 - no string descriptor like original PureCore */
++	std_as_out_if2_desc.iInterface = 0;  /* DSD Alt Setting 2 - no string descriptor like original XingCore */
  	std_as_in_if0_desc.iInterface = us[STR_AS_IN_ALT0].id;
  	std_as_in_if1_desc.iInterface = us[STR_AS_IN_ALT1].id;
  
@@ -507,13 +507,13 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +
 +static int vendor_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 +{
-+	/* PureCore: No endpoints, nothing to configure */
++	/* XingCore: No endpoints, nothing to configure */
 +	return 0;
 +}
 +
 +static void vendor_disable(struct usb_function *f)
 +{
-+	/* PureCore: No endpoints, nothing to disable */
++	/* XingCore: No endpoints, nothing to disable */
 +}
 +
 +static int vendor_bind(struct usb_configuration *c, struct usb_function *f)
@@ -528,13 +528,13 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +		return status;
 +	vendor_intf_desc.bInterfaceNumber = status;
 +
-+	/* PureCore: No endpoints to allocate */
++	/* XingCore: No endpoints to allocate */
 +
 +	/* Support all speeds */
 +	usb_assign_descriptors(f, vendor_fs_function, vendor_hs_function,
 +			       vendor_ss_function, NULL);
 +
-+	dev_info(&cdev->gadget->dev, "PureCore vendor interface ready\n");
++	dev_info(&cdev->gadget->dev, "XingCore vendor interface ready\n");
 +	return 0;
 +}
 +
@@ -597,7 +597,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +
 +DECLARE_USB_FUNCTION_INIT(vendor, vendor_alloc_inst, vendor_alloc);
 +MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("PureCore Emulation");
++MODULE_AUTHOR("XingCore Emulation");
 +MODULE_DESCRIPTION("Vendor-specific USB function for Configuration 2");
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/Makefile
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/Makefile	2025-07-03 13:59:45.000000000 +0300
@@ -1014,7 +1014,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/codecs/d
  };
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-25 20:12:14.075102747 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/sound/soc/rockchip/rockchip_i2s_tdm.c	2025-11-29 20:49:28.182239892 +0300
 @@ -1,31 +1,46 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -// ALSA SoC Audio Layer - Rockchip I2S/TDM Controller driver
@@ -2106,7 +2106,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
  }
  
  /*
-@@ -554,3024 +636,3258 @@
+@@ -554,3024 +636,3315 @@
   */
  static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, bool en)
  {
@@ -4476,9 +4476,35 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
 +    
 +
 +    if (i2s_tdm->is_master_mode) {
-+        if (i2s_tdm->mclk_calibrate)
++        if (i2s_tdm->mclk_calibrate) {
 +            rockchip_i2s_tdm_calibrate_mclk(i2s_tdm, substream,
 +                            params_rate(params));
++
++            /* CRITICAL: Apply MCLK rate based on multiplier and audio family */
++            unsigned int target_mclk;
++            if (params_rate(params) % 44100 == 0) {  // 44.1kHz family
++                if (i2s_tdm->mclk_multiplier == 1024) {
++                    target_mclk = 45158400;  // 45.158MHz (1024x)
++                } else {
++                    target_mclk = 22579200;  // 22.579MHz (512x)
++                }
++            } else {                           // 48kHz family
++                if (i2s_tdm->mclk_multiplier == 1024) {
++                    target_mclk = 49152000;  // 49.152MHz (1024x)
++                } else {
++                    target_mclk = 24576000;  // 24.576MHz (512x)
++                }
++            }
++            dev_info(i2s_tdm->dev, "Applying MCLK rate %u Hz (multiplier %ux, sample rate %u Hz, %s family)\n",
++                     target_mclk, i2s_tdm->mclk_multiplier, params_rate(params),
++                     (params_rate(params) % 44100 == 0) ? "44.1k" : "48k");
++
++            ret = clk_set_rate(i2s_tdm->mclk_tx, target_mclk);
++            if (ret == 0) {
++                unsigned long actual_rate = clk_get_rate(i2s_tdm->mclk_tx);
++                dev_info(i2s_tdm->dev, "MCLK rate set to %lu Hz (target %u Hz)\n", actual_rate, target_mclk);
++            }
++        }
 +if( i2s_tdm->mclk_external ){
 +            mclk = i2s_tdm->mclk_tx;
 +            if( i2s_tdm->mclk_ext_mux ) {
@@ -5331,18 +5357,49 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/soc/rockchip
 +{
 +    struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
 +    int multiplier;
-+    
++
 +    if (sscanf(buf, "%d", &multiplier) != 1)
 +        return -EINVAL;
-+    
++
 +    if (multiplier != 512 && multiplier != 1024) {
 +        dev_err(dev, "Invalid MCLK multiplier: %d. Must be 512 or 1024.\n", multiplier);
 +        return -EINVAL;
 +    }
-+    
++
 +    i2s_tdm->mclk_multiplier = multiplier;
 +    dev_info(dev, "MCLK multiplier set to %dx\n", multiplier);
-+    
++
++    /* Apply multiplier change to existing MCLK frequency settings */
++    /* Update internal frequency values for next stream start */
++    unsigned int current_freq = i2s_tdm->mclk_tx_freq;
++    unsigned int target_freq;
++
++    /* Calculate target MCLK frequency based on current setting and new multiplier */
++    if (current_freq == 45158400 || current_freq == 22579200) {
++        /* Currently 44.1kHz family - apply new multiplier */
++        target_freq = (multiplier == 1024) ? 45158400 : 22579200;
++    } else if (current_freq == 49152000 || current_freq == 24576000) {
++        /* Currently 48kHz family - apply new multiplier */
++        target_freq = (multiplier == 1024) ? 49152000 : 24576000;
++    } else {
++        /* Default to 48kHz family if no previous setting */
++        target_freq = (multiplier == 1024) ? 49152000 : 24576000;
++    }
++
++    /* Update internal frequency values */
++    i2s_tdm->mclk_tx_freq = target_freq;
++    i2s_tdm->mclk_rx_freq = target_freq;
++
++    /* Force set MCLK rate even when mclk_calibrate is active - multiplier should work! */
++    int ret = clk_set_rate(i2s_tdm->mclk_tx, target_freq);
++    if (ret == 0) {
++        dev_info(dev, "MCLK rate changed to %lu Hz (multiplier %dx, forced despite mclk_calibrate)\n",
++                clk_get_rate(i2s_tdm->mclk_tx), multiplier);
++    } else {
++        dev_info(dev, "MCLK rate set failed (ret=%d), keeping internal freq %d Hz (multiplier %dx)\n",
++                ret, target_freq, multiplier);
++    }
++
 +    return count;
 +}
 +
@@ -8042,7 +8099,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/sound/usb/quirks.c
  		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
  	DEVICE_FLG(0x13e5, 0x0001, /* Serato Phono */
  		   QUIRK_FLAG_IGNORE_CTL_ERROR),
-+	DEVICE_FLG(0x152a, 0x8852, /* PureCore USB Hi-Resolution Audio */
++	DEVICE_FLG(0x152a, 0x8852, /* XingCore USB Hi-Resolution Audio */
 +		   QUIRK_FLAG_DSD_RAW),
  	DEVICE_FLG(0x154e, 0x1002, /* Denon DCD-1500RE */
  		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY),
