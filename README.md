@@ -18,11 +18,11 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 
 **Supported Modes:**
 
-| Mode | Driver | Windows API | Formats | Status |
-|------|--------|-------------|---------|--------|
+| Mode | Driver | API | Formats | Status |
+|------|--------|-----|---------|--------|
 | **Without Drivers** | Windows USB Audio 2.0 (built-in) | WASAPI | PCM 44.1-768 kHz | ✅ Working |
-| **With custom Drivers** | libusbk (in development) | WASAPI/ASIO | PCM + DSD64-512 | 🚧 In development |
-| Linux Host | ALSA (snd-usb-audio) | ALSA | PCM + DSD64-512 | ✅ Working |
+| **With custom Drivers** | libusbk (in dev) | WASAPI/ASIO | PCM + DSD64-512 | 🚧 In dev |
+| Linux Host | ALSA | ALSA | PCM + DSD64-512 | ✅ Working |
 
 **Features:**
 - ✅ Works without driver installation (Windows 10+)
