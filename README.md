@@ -35,6 +35,50 @@ The project utilizes the internal PLL of the processor for audio clock generatio
 **Limitations:**
 - ⚠️ Windows without drivers: PCM only (ignores Alt Setting 2 with DSD)
 
+## Flashing the Device
+
+Luckfox Pico Pro/Max comes preloaded with a factory test image. Users must manually flash the OS to onboard Flash.
+
+### Prerequisites
+1. **Install USB Drivers**: [RK DriverAssistant](https://files.luckfox.com/wiki/Omni3576/TOOLS/DriverAssitant_v5.13.zip)
+2. **Download Programming Tool**:
+   - Windows: [SocToolKit](https://files.luckfox.com/wiki/Luckfox-Pico/Software/SocToolKit_v1.98_20240705_01_win.zip)
+   - Linux: [upgrade_tool](/assets/files/upgrade_tool_v2.17-bfd48dcdba9fd8013872ca2abff19a8d.zip)
+
+### Windows Flashing to SPI NAND Flash
+
+1. **Install USB Drivers**
+   ![Driver Installation](https://wiki.luckfox.com/img/RV1106/Luckfox-Pico-RKDriver.png)
+
+2. **Open SocToolKit as Administrator**
+   ![SocToolKit Interface](https://wiki.luckfox.com/img/RV1106/Flash/SocToolKit-RV1106.png)
+
+3. **Connect Device in Mask ROM Mode**
+   Hold BOOT button while connecting to PC
+
+4. **Select Firmware and Flash**
+   Browse to `buildroot/output/images/boot.img` and click Download
+   ![Flashing Process](https://wiki.luckfox.com/img/RV1106/Flash/Pico-Pi-W-download.png)
+
+### Linux Flashing to SPI NAND Flash
+
+1. **Check Device Connection**
+   ```bash
+   lsusb
+   ```
+   ![Linux USB Detection](https://wiki.luckfox.com/img/RV1106/Flash/Linux-lsusb.png)
+
+2. **Flash Firmware**
+   ```bash
+   sudo upgrade_tool uf buildroot/output/images/boot.img
+   ```
+   ![Linux Flashing](https://wiki.luckfox.com/img/RV1106/KVM/upgrade.png)
+
+### Notes
+- The PureCore build generates `boot.img` in `buildroot/output/images/`
+- This contains both kernel and device tree for NAND flash boot
+- Ensure device is in mask ROM mode (BOOT button held) for flashing
+
 ## Credits
 
 Special thanks to Vladimir Aleev (https://github.com/aleev/ale-linux-rv1106) for the initial idea and implementation of I2S on rv1106.
