@@ -48,17 +48,17 @@ Luckfox Pico Pro/Max comes preloaded with a factory test image. Users must manua
 ### Windows Flashing to SPI NAND Flash
 
 1. **Install USB Drivers**
-   ![Driver Installation](https://wiki.luckfox.com/img/RV1106/Luckfox-Pico-RKDriver.png)
+   <img width="400" alt="Driver Installation" src="https://wiki.luckfox.com/img/RV1106/Luckfox-Pico-RKDriver.png">
 
 2. **Open SocToolKit as Administrator**
-   ![SocToolKit Interface](https://wiki.luckfox.com/img/RV1106/Flash/SocToolKit-RV1106.png)
+   <img width="400" alt="SocToolKit Interface" src="https://wiki.luckfox.com/img/RV1106/Flash/SocToolKit-RV1106.png">
 
 3. **Connect Device in Mask ROM Mode**
    Hold BOOT button while connecting to PC
 
 4. **Select Firmware and Flash**
    Browse to `buildroot/output/images/boot.img` and click Download
-   ![Flashing Process](https://wiki.luckfox.com/img/RV1106/Flash/Pico-Pi-W-download.png)
+   <img width="400" alt="Flashing Process" src="https://wiki.luckfox.com/img/RV1106/Flash/Pico-Pi-W-download.png">
 
 ### Linux Flashing to SPI NAND Flash
 
@@ -66,13 +66,13 @@ Luckfox Pico Pro/Max comes preloaded with a factory test image. Users must manua
    ```bash
    lsusb
    ```
-   ![Linux USB Detection](https://wiki.luckfox.com/img/RV1106/Flash/Linux-lsusb.png)
+   <img width="400" alt="Linux USB Detection" src="https://wiki.luckfox.com/img/RV1106/Flash/Linux-lsusb.png">
 
 2. **Flash Firmware**
    ```bash
    sudo upgrade_tool uf buildroot/output/images/boot.img
    ```
-   ![Linux Flashing](https://wiki.luckfox.com/img/RV1106/KVM/upgrade.png)
+   <img width="400" alt="Linux Flashing" src="https://wiki.luckfox.com/img/RV1106/KVM/upgrade.png">
 
 ### Notes
 - The PureCore build generates `boot.img` in `buildroot/output/images/`
