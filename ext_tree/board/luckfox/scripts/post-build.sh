@@ -30,6 +30,15 @@ sed -i "s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g" $TARGET_DIR/
 # Remove GDB Python helper files (they prevent buildroot's strip from working)
 find $TARGET_DIR -name "*-gdb.py" -delete
 
+# Remove www-data user/group (not needed for audio-only system)
+if [ -f "$TARGET_DIR/etc/passwd" ]; then
+    sed -i '/^www-data:/d' "$TARGET_DIR/etc/passwd" 2>/dev/null || true
+fi
+if [ -f "$TARGET_DIR/etc/group" ]; then
+    sed -i '/^www-data:/d' "$TARGET_DIR/etc/group" 2>/dev/null || true
+    sed -i '/^tty:/d' "$TARGET_DIR/etc/group" 2>/dev/null || true
+fi
+
 # Strip external toolchain libraries (buildroot's target-finalize runs BEFORE post-build)
 # When packages are reinstalled, libraries are copied unstripped, so we strip them here
 STRIP_BIN="$HOST_DIR/opt/ext-toolchain/bin/arm-none-linux-gnueabihf-strip"

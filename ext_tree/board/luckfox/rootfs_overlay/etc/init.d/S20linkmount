@@ -1,4 +1,14 @@
 #!/bin/sh
+# Optimized version - quickly check mount type
+
+# If rootfs is already squashfs, exit immediately
+root_dev=$(mountpoint -n / | cut -d' ' -f1)
+if echo "$root_dev" | grep -q "mtdblock"; then
+    echo "Rootfs on $root_dev already mounted by kernel"
+    exit 0
+fi
+
+# Only run full code for UBI/UBIFS
 bootmedium=spi_nand
 linkdev(){
 if [ ! -d "/dev/block/by-name" ];then
@@ -10,6 +20,7 @@ ln -sf /dev/mtd2 uboot
 ln -sf /dev/mtd3 boot
 ln -sf /dev/mtd4 rootfs
 fi }
+
 mount_part(){
 if [ -z "$1" -o -z "$2" -o -z "$3" ];then
 	echo "Invalid paramter, exit !!!"

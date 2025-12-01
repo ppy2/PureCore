@@ -1,43 +1,11 @@
 #!/bin/sh
 
-# Find mixer control with playback volume and switch capabilities
-MIXER=$(amixer 2>/dev/null | awk '
-    /^Simple mixer control/ {
-        control = $0
-        gsub(/.*'\''/, "", control)
-        gsub(/'\''.*/, "", control)
-    }
-    /Capabilities:/ && /pvolume/ && /pswitch/ {
-        print control
-        exit
-    }
-')
-# Fallback to first available control if none found
-[ -z "$MIXER" ] && MIXER=$(amixer 2>/dev/null | awk -F "'" 'NR==1 {print $2; exit}')
-
 echo 1 > /sys/devices/platform/ffae0000.i2s/mute
-[ -n "$MIXER" ] && /usr/bin/amixer set "$MIXER" mute 2>/dev/null
+/usr/bin/amixer set PCM mute 2>/dev/null
 
-	if [ -f /data/ethaddr.txt ]; then
-	    MAC=`cat /data/ethaddr.txt`
-	else    
-	    OUI="BE10E0"
-	    SERIAL=$(grep -o 'Serial[[:space:]]*:[[:space:]]*[[:xdigit:]]*' /proc/cpuinfo | awk '{print $NF}')
-	    MAC_PART=$(echo "$SERIAL" | tail -c 7)
-	    MAC="${OUI}${MAC_PART}"
-	    MAC=$(echo "$MAC" | sed 's/\(..\)\(..\)\(..\)\(..\)\(..\)\(..\)/\1:\2:\3:\4:\5:\6/')
-	    MAC=$(echo "$MAC" | tr '[:lower:]' '[:upper:]')
-	    echo $MAC > /data/ethaddr.txt
-	    chattr +i /data/ethaddr.txt
-	    sync
-	fi
-
-/sbin/ifconfig eth0 down
-/sbin/ifconfig eth0 hw ether $MAC
-#/sbin/ifconfig eth0 up && /sbin/udhcpc -i eth0
+echo 5 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 
 
 grep MCLK=1024 /etc/i2s.conf && echo 1024 > /sys/devices/platform/ffae0000.i2s/mclk_multiplier
-echo 5 >  /sys/devices/platform/ffae0000.i2s/postmute_delay_ms 
 
 PCM_SWAP=$(grep '^PCM_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
 [ -n "$PCM_SWAP" ] && echo "$PCM_SWAP" > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap || echo 0 > /sys/devices/platform/ffae0000.i2s/pcm_channel_swap
@@ -47,7 +15,6 @@ DSD_SWAP=$(grep '^DSD_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
 
 FREQ_SWAP=$(grep '^FREQ_SWAP=' /etc/i2s.conf | cut -d'=' -f2 | tr -d '[:space:]')
 [ -n "$FREQ_SWAP" ] && echo "$FREQ_SWAP" > /sys/devices/platform/ffae0000.i2s/freq_domain_invert || echo 0 > /sys/devices/platform/ffae0000.i2s/freq_domain_invert
-
 
 rcS()
 {
@@ -78,17 +45,11 @@ check_linker()
         [ ! -L "$2" ] && ln -sf $1 $2
 }
 
-}
-
 rcS
 
 ulimit -c unlimited
-echo "/data/core-%p-%e" > /proc/sys/kernel/core_pattern
-# echo 0 > /sys/devices/platform/rkcif-mipi-lvds/is_use_dummybuf
-
 echo 1 > /proc/sys/vm/overcommit_memory
-
 sysctl -p
 
-post_chk &
+
 

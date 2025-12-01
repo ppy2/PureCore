@@ -6,7 +6,7 @@
 
 / {
 	chosen {
-		bootargs = "earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 root=/dev/mmcblk1p7 rootwait snd_soc_core.prealloc_buffer_size_kbytes=1024 coherent_pool=2M";
+		bootargs = "root=/dev/mtdblock4 rootfstype=squashfs ro rootwait console=ttyS0,115200n8 noinitrd init=/linuxrc quiet loglevel=1 fastboot earlycon=uart8250,mmio32,0xff4c0000 console=ttyFIQ0 snd_soc_core.prealloc_buffer_size_kbytes=1024 coherent_pool=2M";
 	};
 
 

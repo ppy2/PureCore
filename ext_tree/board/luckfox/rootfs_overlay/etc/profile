@@ -14,6 +14,19 @@ export LC_ALL=ru_RU.UTF-8
 export LANG=ru_RU.UTF-8
 export LC_CTYPE=ru_RU.UTF-8
 
+# Settings for squashfs (read-only filesystem)
+export MC_TMPDIR="/tmp/mc"
+mkdir -p "$MC_TMPDIR" 2>/dev/null
+export MC_HOME="$MC_TMPDIR"
+export HOME=/tmp
+
+# General cache settings in /tmp
+export HOME_CACHE="/tmp/.cache"
+mkdir -p "$HOME_CACHE" 2>/dev/null
+
+# Command history in /tmp
+export HISTFILE="/tmp/.bash_history"
+
 
 # Source configuration files from /etc/profile.d
 for i in /etc/profile.d/*.sh ; do

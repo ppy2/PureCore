@@ -1,8 +1,11 @@
 buildroot/output*
+buildroot/output/
 buildroot/dl
 buildroot/.auto.deps
 buildroot/.config.cmd
 buildroot/.config.old
+buildroot/output/build/linux-custom/**/*.c
+buildroot/output/build/linux-custom/**/*.h
 *.depend
 *.o
 buildroot/*.patch
@@ -13,8 +16,9 @@ buildroot/*.diff
 *.pyc
 .claude
 .qoder
-original.txt
 CLAUDE.md
+AGENTS.md
+
 
 
 
