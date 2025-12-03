@@ -77,17 +77,19 @@ start() {
     echo 4 > functions/uac2.usb0/c_ssize
     echo 1 > functions/uac2.usb0/c_mute_present
     echo 1 > functions/uac2.usb0/c_volume_present
-    echo 1 > functions/uac2.usb0/c_hs_bint  # bInterval=1 (c controls playback in stock driver)
+    # c_hs_bint=0 allows kernel to auto-select optimal bInterval for DSD512
+    # Kernel will choose bInterval=8 for DSD512 to fit in USB 2.0 bandwidth
 
     # Fix p_volume parameters even though p_chmask=0 (kernel validates all params regardless)
     echo 0 > functions/uac2.usb0/p_volume_min
     echo 256 > functions/uac2.usb0/p_volume_max
     echo 256 > functions/uac2.usb0/p_volume_res
 
-    # CRITICALLY IMPORTANT: Parameters for supporting up to 384kHz
-    echo 4 > functions/uac2.usb0/req_number    # USB request buffers (increased for 384kHz)
-    # fb_max=100 for supporting 384kHz (48 samples/frame + margin)
-    echo 100 > functions/uac2.usb0/fb_max       # Async overhead (increased for 384kHz)
+    # CRITICALLY IMPORTANT: Parameters for supporting up to DSD512
+    echo 8 > functions/uac2.usb0/req_number    # USB request buffers (increased for DSD512)
+    # fb_max=24 (2.4% overhead) allows DSD512 to fit in USB 2.0 HS bandwidth
+    # 22579200Hz * 1.024 / 8000 * 2ch * 4bytes = 23138 bytes → needs bInterval=8
+    echo 24 > functions/uac2.usb0/fb_max       # Async overhead optimized for DSD512
 
     # Function name - shown in Windows as device name
     echo "PureCore" > functions/uac2.usb0/function_name

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 #include <alsa/asoundlib.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -35,6 +36,9 @@
 /* Buffer size for netlink uevent */
 #define UEVENT_BUFFER_SIZE 4096
 
+/* Detailed monitoring - set to 1 for verbose buffer monitoring, 0 to disable */
+#define BUFFER_MONITORING 0
+
 static volatile int running = 1;
 static snd_pcm_t *pcm_capture = NULL;
 static snd_pcm_t *pcm_playback = NULL;
@@ -42,6 +46,16 @@ static char uac_card_path[256] = "";
 static char uac_card_name[64] = "";
 static int consecutive_errors = 0;
 #define MAX_CONSECUTIVE_ERRORS 50  /* After 50 consecutive errors (~0.5 sec) - reopen PCM */
+
+/* Statistics for monitoring */
+struct buffer_stats {
+    unsigned long total_frames;
+    unsigned long xrun_capture;
+    unsigned long xrun_playback;
+    unsigned long recoveries;
+    unsigned long buffer_warnings;
+    time_t start_time;
+} stats = {0};
 
 /* Volume synchronization */
 static snd_mixer_t *uac2_mixer = NULL;
@@ -53,6 +67,92 @@ static int last_uac2_mute = -1;
 
 static void sighandler(int sig) {
     running = 0;
+}
+
+/* Print detailed statistics report */
+static void print_statistics_report(void) {
+    time_t now = time(NULL);
+    unsigned long uptime = now - stats.start_time;
+    unsigned long hours = uptime / 3600;
+    unsigned long minutes = (uptime % 3600) / 60;
+    unsigned long seconds = uptime % 60;
+
+    printf("\n╔═══════════════════════════════════════════════════════════╗\n");
+    printf("║              BUFFER STATISTICS REPORT                    ║\n");
+    printf("╠═══════════════════════════════════════════════════════════╣\n");
+    printf("║ Uptime:           %02lu:%02lu:%02lu                            ║\n", hours, minutes, seconds);
+    printf("║ Total frames:     %-10lu                           ║\n", stats.total_frames);
+    printf("║ Capture XRUNs:    %-10lu                           ║\n", stats.xrun_capture);
+    printf("║ Playback XRUNs:   %-10lu                           ║\n", stats.xrun_playback);
+    printf("║ Recoveries:       %-10lu                           ║\n", stats.recoveries);
+    printf("║ Buffer warnings:  %-10lu                           ║\n", stats.buffer_warnings);
+    printf("╚═══════════════════════════════════════════════════════════╝\n\n");
+}
+
+/* Monitor buffer health and adjust behavior */
+static void check_buffer_health(snd_pcm_t *pcm_capture, snd_pcm_t *pcm_playback, const char *context) {
+    static int health_check_counter = 0;
+    static int stats_report_counter = 0;
+
+#if BUFFER_MONITORING
+    /* Check every 100 iterations to avoid overhead */
+    if (++health_check_counter < 100)
+        goto skip_health_check;
+    health_check_counter = 0;
+
+    if (pcm_capture) {
+        snd_pcm_sframes_t avail = snd_pcm_avail(pcm_capture);
+        snd_pcm_state_t state = snd_pcm_state(pcm_capture);
+
+        if (avail > 0) {
+            snd_pcm_uframes_t buffer_size = 0;
+            snd_pcm_hw_params_t *hw_params;
+            snd_pcm_hw_params_alloca(&hw_params);
+            if (snd_pcm_hw_params_current(pcm_capture, hw_params) == 0) {
+                snd_pcm_hw_params_get_buffer_size(hw_params, &buffer_size);
+                int fill_percent = (int)((buffer_size - avail) * 100 / buffer_size);
+
+                printf("[MONITOR] Capture: state=%s, avail=%ld/%lu frames (%d%% full)\n",
+                       snd_pcm_state_name(state), avail, buffer_size, fill_percent);
+
+                if (fill_percent > 90) {
+                    fprintf(stderr, "[WARNING] Capture buffer %d%% full (near overflow)\n", fill_percent);
+                    stats.buffer_warnings++;
+                }
+            }
+        }
+    }
+
+    if (pcm_playback) {
+        snd_pcm_sframes_t avail = snd_pcm_avail(pcm_playback);
+        snd_pcm_sframes_t delay = 0;
+        snd_pcm_state_t state = snd_pcm_state(pcm_playback);
+        snd_pcm_delay(pcm_playback, &delay);
+
+        snd_pcm_uframes_t buffer_size = 0;
+        snd_pcm_hw_params_t *hw_params;
+        snd_pcm_hw_params_alloca(&hw_params);
+        if (snd_pcm_hw_params_current(pcm_playback, hw_params) == 0) {
+            snd_pcm_hw_params_get_buffer_size(hw_params, &buffer_size);
+            int fill_percent = delay > 0 ? (int)(delay * 100 / buffer_size) : 0;
+
+            printf("[MONITOR] Playback: state=%s, avail=%ld, delay=%ld frames (%d%% full)\n",
+                   snd_pcm_state_name(state), avail, delay, fill_percent);
+        }
+
+        if (delay < 512 && state == SND_PCM_STATE_RUNNING) {
+            fprintf(stderr, "[WARNING] Playback buffer low (delay=%ld frames, risk of underrun)\n", delay);
+            stats.buffer_warnings++;
+        }
+    }
+
+skip_health_check:
+    /* Print statistics every 5000 iterations (~5 seconds at 44.1kHz) */
+    if (++stats_report_counter >= 5000) {
+        stats_report_counter = 0;
+        print_statistics_report();
+    }
+#endif
 }
 
 /* Determine if frequency is DSD */
@@ -70,6 +170,39 @@ static const char* get_dsd_name(unsigned int rate) {
         case DSD512_RATE: return "DSD512";
         default: return "Unknown";
     }
+}
+
+/* Ensure I2S playback is unmuted - critical after reopening */
+static void unmute_i2s_playback(void) {
+    snd_mixer_t *mixer = NULL;
+    snd_mixer_elem_t *elem = NULL;
+    snd_mixer_selem_id_t *sid;
+
+    /* Open I2S mixer */
+    if (snd_mixer_open(&mixer, 0) < 0) return;
+    if (snd_mixer_attach(mixer, "hw:0") < 0) {
+        snd_mixer_close(mixer);
+        return;
+    }
+    if (snd_mixer_selem_register(mixer, NULL, NULL) < 0 ||
+        snd_mixer_load(mixer) < 0) {
+        snd_mixer_close(mixer);
+        return;
+    }
+
+    /* Find PCM Playback Switch */
+    snd_mixer_selem_id_alloca(&sid);
+    snd_mixer_selem_id_set_index(sid, 0);
+    snd_mixer_selem_id_set_name(sid, "PCM");
+    elem = snd_mixer_find_selem(mixer, sid);
+
+    if (elem) {
+        /* Unmute playback */
+        snd_mixer_selem_set_playback_switch_all(elem, 1);
+        printf("[UNMUTE] I2S playback unmuted\n");
+    }
+
+    snd_mixer_close(mixer);
 }
 
 /* Initialize volume sync: open mixers for UAC2 and I2S */
@@ -368,13 +501,17 @@ static int configure_audio(unsigned int rate, int card, char **buffer, size_t *b
     /* Use PCM format for buffer calculation (DSD and PCM both 32-bit) */
     size_t frame_bytes = snd_pcm_format_physical_width(I2S_FORMAT_PCM) / 8 * I2S_CHANNELS;
     *buffer_size = max_period * frame_bytes;
-    *buffer = realloc(*buffer, *buffer_size);
 
-    if (!*buffer) {
+    /* Safe realloc - avoid memory leak */
+    char *new_buffer = realloc(*buffer, *buffer_size);
+    if (!new_buffer) {
         fprintf(stderr, "Cannot allocate buffer\n");
+        free(*buffer);  /* Free old buffer */
+        *buffer = NULL;
         close_pcms();
         return -1;
     }
+    *buffer = new_buffer;
 
     /* Prepare both devices */
     if (snd_pcm_prepare(pcm_capture) < 0) {
@@ -397,6 +534,10 @@ static int configure_audio(unsigned int rate, int card, char **buffer, size_t *b
     }
 
     printf("[CONFIG] Audio configured successfully\n\n");
+
+    /* CRITICAL: Unmute I2S playback after opening */
+    unmute_i2s_playback();
+
     return 0;
 }
 
@@ -414,7 +555,11 @@ int main(void) {
 
     printf("═══════════════════════════════════════════════════════════\n");
     printf("  UAC2 -> I2S Router (uevent-based, PureCore compatible)\n");
+    printf("  Buffer Monitoring: %s\n", BUFFER_MONITORING ? "ENABLED" : "DISABLED");
     printf("═══════════════════════════════════════════════════════════\n\n");
+
+    /* Initialize statistics */
+    stats.start_time = time(NULL);
 
     /* Find UAC card */
     uac_card = find_uac_card();
@@ -502,13 +647,35 @@ int main(void) {
             /* Error - increment counter */
             consecutive_errors++;
 
-            /* Too many consecutive errors - reopen PCM */
+            /* Too many consecutive errors - try recovery WITHOUT closing */
             if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
-                fprintf(stderr, "[ERROR] Too many consecutive errors (%d), reopening PCM devices...\n",
-                        consecutive_errors);
-                close_pcms();
+                stats.recoveries++;
+                fprintf(stderr, "[RECOVERY] Too many consecutive errors (%d), attempting recovery (total=%lu)...\n",
+                        consecutive_errors, stats.recoveries);
+
+                /* Check PCM state and recover gracefully */
+                if (pcm_capture) {
+                    snd_pcm_state_t state = snd_pcm_state(pcm_capture);
+                    if (state != SND_PCM_STATE_RUNNING) {
+                        fprintf(stderr, "[RECOVERY] Capture state: %s, restarting...\n", snd_pcm_state_name(state));
+                        snd_pcm_drop(pcm_capture);
+                        snd_pcm_prepare(pcm_capture);
+                        snd_pcm_start(pcm_capture);
+                    }
+                }
+
+                if (pcm_playback) {
+                    snd_pcm_state_t state = snd_pcm_state(pcm_playback);
+                    if (state != SND_PCM_STATE_RUNNING && state != SND_PCM_STATE_PREPARED) {
+                        fprintf(stderr, "[RECOVERY] Playback state: %s, restarting...\n", snd_pcm_state_name(state));
+                        snd_pcm_drop(pcm_playback);
+                        snd_pcm_prepare(pcm_playback);
+                        /* unmute_i2s_playback() removed - too slow for recovery path */
+                    }
+                }
+
                 consecutive_errors = 0;
-                usleep(500000);  /* 500ms before reopening */
+                usleep(100000);  /* 100ms pause */
                 continue;
             }
 
@@ -530,22 +697,41 @@ int main(void) {
         /* Successfully received data - reset error counter */
         consecutive_errors = 0;
 
+        /* Monitor buffer health periodically */
+        check_buffer_health(pcm_capture, pcm_playback, "main_loop");
+
         snd_pcm_sframes_t frames = snd_pcm_readi(pcm_capture, buffer, period_size);
 
         if (frames < 0) {
             consecutive_errors++;
 
-            /* Protection from infinite read errors */
+            /* Protection from infinite read errors - graceful recovery */
             if (consecutive_errors >= MAX_CONSECUTIVE_ERRORS) {
-                fprintf(stderr, "[ERROR] Too many read errors (%d), reopening PCM...\n", consecutive_errors);
-                close_pcms();
+                fprintf(stderr, "[RECOVERY] Too many read errors (%d), recovering gracefully...\n", consecutive_errors);
+
+                /* Recover capture without closing */
+                snd_pcm_drop(pcm_capture);
+                snd_pcm_prepare(pcm_capture);
+                snd_pcm_start(pcm_capture);
+
+                /* Check playback state */
+                if (pcm_playback) {
+                    snd_pcm_state_t state = snd_pcm_state(pcm_playback);
+                    if (state != SND_PCM_STATE_RUNNING && state != SND_PCM_STATE_PREPARED) {
+                        snd_pcm_prepare(pcm_playback);
+                        /* unmute_i2s_playback() removed - too slow for recovery path */
+                    }
+                }
+
                 consecutive_errors = 0;
-                usleep(500000);
+                usleep(100000);
                 continue;
             }
 
             if (frames == -EPIPE) {
-                fprintf(stderr, "[XRUN] Capture overrun (error #%d)\n", consecutive_errors);
+                stats.xrun_capture++;
+                fprintf(stderr, "[XRUN] Capture overrun (error #%d, total=%lu)\n",
+                        consecutive_errors, stats.xrun_capture);
                 snd_pcm_prepare(pcm_capture);
                 snd_pcm_prepare(pcm_playback);
                 continue;
@@ -556,10 +742,19 @@ int main(void) {
                     snd_pcm_prepare(pcm_capture);
                 continue;
             } else if (frames == -ENODEV || frames == -EBADF) {
-                fprintf(stderr, "[ERROR] Stream disconnected, waiting... (error #%d)\n", consecutive_errors);
-                close_pcms();
-                consecutive_errors = 0;
-                usleep(500000);  /* 500ms */
+                fprintf(stderr, "[RECOVERY] Stream disconnected (error #%d), recovering...\n", consecutive_errors);
+
+                /* Wait for host to reconnect - don't close devices! */
+                usleep(100000);  /* 100ms */
+
+                /* Try to restart capture gracefully */
+                if (pcm_capture) {
+                    snd_pcm_drop(pcm_capture);
+                    if (snd_pcm_prepare(pcm_capture) == 0) {
+                        snd_pcm_start(pcm_capture);
+                        fprintf(stderr, "[RECOVERY] Capture restarted\n");
+                    }
+                }
                 continue;
             }
             fprintf(stderr, "[ERROR] Read failed: %s (error #%d)\n", snd_strerror(frames), consecutive_errors);
@@ -568,10 +763,12 @@ int main(void) {
         }
 
         if (frames > 0) {
+            stats.total_frames += frames;
             snd_pcm_sframes_t written = snd_pcm_writei(pcm_playback, buffer, frames);
             if (written < 0) {
                 if (written == -EPIPE) {
-                    fprintf(stderr, "[XRUN] Playback underrun\n");
+                    stats.xrun_playback++;
+                    fprintf(stderr, "[XRUN] Playback underrun (total=%lu)\n", stats.xrun_playback);
                     snd_pcm_prepare(pcm_playback);
                 } else if (written == -ESTRPIPE) {
                     while ((written = snd_pcm_resume(pcm_playback)) == -EAGAIN)
@@ -579,9 +776,17 @@ int main(void) {
                     if (written < 0)
                         snd_pcm_prepare(pcm_playback);
                 } else if (written == -ENODEV || written == -EBADF) {
-                    printf("[ERROR] Playback error, reinitializing...\n");
-                    close_pcms();
-                    usleep(500000);
+                    fprintf(stderr, "[RECOVERY] Playback device error, recovering...\n");
+
+                    /* Recover playback gracefully */
+                    if (pcm_playback) {
+                        snd_pcm_drop(pcm_playback);
+                        if (snd_pcm_prepare(pcm_playback) == 0) {
+                            unmute_i2s_playback();
+                            fprintf(stderr, "[RECOVERY] Playback recovered\n");
+                        }
+                    }
+                    usleep(10000);
                 }
                 continue;
             }
@@ -596,6 +801,9 @@ int main(void) {
 
     if (buffer)
         free(buffer);
+
+    /* Print final statistics before exit */
+    print_statistics_report();
 
     close_pcms();
     /* close_mixers() disabled - not used */
