@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot -g9dbebed2-dirty Configuration
+# Buildroot -g4afcf962-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_EXTERNAL_NAMES="ext_tree"
@@ -2101,7 +2101,8 @@ BR2_PACKAGE_LIBZENOH_C_ARCH_SUPPORTS=y
 # BR2_PACKAGE_DOTCONF is not set
 # BR2_PACKAGE_DOUBLE_CONVERSION is not set
 # BR2_PACKAGE_EIGEN is not set
-# BR2_PACKAGE_ELFUTILS is not set
+BR2_PACKAGE_ELFUTILS=y
+# BR2_PACKAGE_ELFUTILS_PROGS is not set
 # BR2_PACKAGE_ELL is not set
 # BR2_PACKAGE_FARMHASH is not set
 # BR2_PACKAGE_FFT2D is not set
@@ -4137,20 +4138,10 @@ BR2_TARGET_UBOOT_CUSTOM_PATCH_DIR=""
 #
 
 #
-# external BR tree for Luckfox Pico Max (in /opt/PureFox/ext_tree)
+# external BR tree for Luckfox Pico Max (in /home/ppy/PureCore/ext_tree)
 #
 
 #
 # Custom packages
 #
-# BR2_PACKAGE_APRENDERER is not set
-# BR2_PACKAGE_APLAYER is not set
-# BR2_PACKAGE_NAA is not set
-# BR2_PACKAGE_ROONREADY is not set
-# BR2_PACKAGE_LIBRESPOT is not set
-# BR2_PACKAGE_APSCREAM is not set
-# BR2_PACKAGE_SQUEEZELITER2 is not set
-# BR2_PACKAGE_STATUS_MONITOR is not set
-# BR2_PACKAGE_QOBUZ_CONNECT is not set
-# BR2_PACKAGE_TIDAL_CONNECT is not set
 BR2_PACKAGE_UAC2_ROUTER=y

@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-UAC2_ROUTER_VERSION = 1.0
+UAC2_ROUTER_VERSION = 2.0
 UAC2_ROUTER_SITE_METHOD = local
 UAC2_ROUTER_SITE = $(TOPDIR)/../ext_tree/package/uac2_router
 UAC2_ROUTER_DEPENDENCIES = alsa-lib

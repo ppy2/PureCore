@@ -620,7 +620,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-11-25 19:55:55.471102039 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-12-07 18:54:56.780415317 +0300
 @@ -82,6 +82,13 @@
  	struct snd_card *card;
  	struct snd_pcm *pcm;
@@ -873,7 +873,17 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/*
  	 * Create first PCM device
  	 * Create a substream only for non-zero channel streams
-@@ -1674,6 +1831,26 @@
+@@ -1536,7 +1693,8 @@
+ 			|| (c_chmask && params->c_fu.id))
+ 		strscpy(card->mixername, card_name, sizeof(card->driver));
+ 
+-	if (c_chmask && g_audio->in_ep_fback) {
++	/* PURECORE: Always create capture pitch control for feedback */
++	if (c_chmask) {
+ 		kctl = snd_ctl_new1(&u_audio_controls[UAC_FBACK_CTRL],
+ 				    &uac->c_prm);
+ 		if (!kctl) {
+@@ -1674,6 +1832,26 @@
  	if (err < 0)
  		goto snd_fail;
  
@@ -900,7 +910,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
  					"%s", g_audio->uac->card->longname);
  	if (IS_ERR(g_audio->device)) {
-@@ -1718,6 +1895,12 @@
+@@ -1718,6 +1896,12 @@
  	uac = g_audio->uac;
  	g_audio->uac = NULL;
  
@@ -913,7 +923,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	card = uac->card;
  	if (card)
  		snd_card_free_when_closed(card);
-@@ -1745,13 +1928,6 @@
+@@ -1745,13 +1929,6 @@
  }
  module_init(u_audio_init);
  

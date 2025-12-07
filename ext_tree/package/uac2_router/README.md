@@ -141,5 +141,7 @@ ls /sys/kernel/config/usb_gadget/purecore/UDC
 
 ## Authors
 
+pavel.pogodin@gmail.com
+
 Modification for uevent-based router: 2025
-Base implementation: UAC2 Router v1.0
+Base implementation: UAC2 Router v2.0

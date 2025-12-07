@@ -85,6 +85,11 @@ start() {
     echo 256 > functions/uac2.usb0/p_volume_max
     echo 256 > functions/uac2.usb0/p_volume_res
 
+    # IMPORTANT: Set p_srate and p_ssize for capture (UAC2 input from host)
+    # Even though p_chmask=0, these are required for proper UAC2 function
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.usb0/p_srate
+    echo 4 > functions/uac2.usb0/p_ssize
+
     # CRITICALLY IMPORTANT: Parameters for supporting up to DSD512
     echo 8 > functions/uac2.usb0/req_number    # USB request buffers (increased for DSD512)
     # fb_max=24 (2.4% overhead) allows DSD512 to fit in USB 2.0 HS bandwidth

@@ -68,7 +68,7 @@ if [ -f "$SQUASHFS_FILE" ]; then
 
         # Create clean squashfs
         echo "Creating clean squashfs..."
-        /opt/PureCore/buildroot/output/host/bin/mksquashfs "$TEMP_TARGET" "$SQUASHFS_FILE" -noappend -processors 25 -b 128K -Xhc -comp lz4
+        mksquashfs "$TEMP_TARGET" "$SQUASHFS_FILE" -noappend -processors 25 -b 128K -Xhc -comp lz4
 
         # Cleanup
         rm -rf "$TEMP_TARGET" "$TEMP_MOUNT"
