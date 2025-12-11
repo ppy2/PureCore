@@ -22,6 +22,7 @@ rm zImage
 cd $MAINDIR
 
 rm -f $TARGET_DIR/etc/init.d/*urandom
+rm -f $TARGET_DIR/etc/init.d/*seedrng
 #rm -f $TARGET_DIR/etc/init.d/*mdev
 rm -f -r $TARGET_DIR/etc/alsa
 #sed -i "s/console::respawn/#console::respawn/g" $TARGET_DIR/etc/inittab
