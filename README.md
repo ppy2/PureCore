@@ -26,29 +26,6 @@ ssh root@10.10.10.10
 # Password: purefox
 ```
 
-### SSH Connection Methods
-
-**Standard Connection:**
-```bash
-ssh root@10.10.10.10
-```
-
-**SquashFS Compatible Solutions (if needed):**
-
-1. **Disable host key checking (temporary):**
-```bash
-ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@10.10.10.10
-```
-
-2. **Use sshpass for automation:**
-```bash
-sshpass -p purefox ssh -o StrictHostKeyChecking=no root@10.10.10.10
-```
-
-⚠️ **Note**: SquashFS uses read-only filesystem, so SSH cannot save host keys.
-
-**Built-in Solution**: PureCore SquashFS builds automatically handle this by moving SSH host keys to `/tmp` and creating symbolic links, enabling standard SSH connections without additional parameters.
-
 ### Available Services
 - **SSH**: Remote shell access and file transfer
 - **uac2_router**: UAC2 to I2S audio routing daemon
