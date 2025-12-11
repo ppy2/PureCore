@@ -14,7 +14,7 @@
 
 #define UAC2_CARD "hw:1,0"
 #define I2S_CARD "hw:0,0"
-#define PERIOD_FRAMES 512  /* Balance between CPU and load uniformity */
+#define PERIOD_FRAMES 1024  /* Optimal period size that both devices accept */
 
 /* New sysfs interface from the modified u_audio.c driver */
 #define SYSFS_UAC2_PATH "/sys/class/u_audio"
@@ -37,18 +37,50 @@
 #define UEVENT_BUFFER_SIZE 4096
 
 static volatile int running = 1;
+
+/* Global variables for signal handler */
+static int uevent_sock = -1;
+
+/* Global PCM handles for signal handler */
 static snd_pcm_t *pcm_capture = NULL;
 static snd_pcm_t *pcm_playback = NULL;
-static char uac_card_path[256] = "";
-static char uac_card_name[64] = "";
-static int consecutive_errors = 0;
-#define MAX_CONSECUTIVE_ERRORS 10  /* Reduced from 50 for faster recovery */
+
+/* Global UAC card info for signal handler */
+static char uac_card_path[256] = {0};
+static char uac_card_name[32] = {0};
 
 /* Simple recovery counter from v4.0 */
 static int recovery_counter = 0;
+static int consecutive_errors = 0;
 
 static void sighandler(int sig) {
+    printf("\n[STOP] Received signal %d, shutting down gracefully...\n", sig);
     running = 0;
+    
+    /* Close PCM devices gracefully */
+    if (pcm_capture) {
+        snd_pcm_drain(pcm_capture);
+        snd_pcm_close(pcm_capture);
+        pcm_capture = NULL;
+    }
+    
+    if (pcm_playback) {
+        snd_pcm_drain(pcm_playback);
+        snd_pcm_close(pcm_playback);
+        pcm_playback = NULL;
+    }
+    
+    /* Close netlink socket */
+    if (uevent_sock >= 0) {
+        close(uevent_sock);
+        uevent_sock = -1;
+    }
+    
+    /* Clear UAC card info */
+    memset(uac_card_path, 0, sizeof(uac_card_path));
+    memset(uac_card_name, 0, sizeof(uac_card_name));
+    
+    printf("[STOP] Cleanup completed\n");
 }
 
 /* Determine if frequency is DSD */
@@ -76,7 +108,7 @@ static int find_uac_card(void) {
     for (int i = 0; i < 10; i++) {
         snprintf(path, sizeof(path), "%s/uac_card%d", SYSFS_UAC2_PATH, i);
         if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
-            strncpy(uac_card_path, path, sizeof(uac_card_path) - 1);
+            snprintf(uac_card_path, sizeof(uac_card_path), "%s", path);
             snprintf(uac_card_name, sizeof(uac_card_name), "uac_card%d", i);
             printf("Found UAC card: %s (card %d)\n", uac_card_path, i);
             return i;
@@ -154,17 +186,9 @@ static int setup_pcm(snd_pcm_t **pcm, const char *device, snd_pcm_stream_t strea
     snd_pcm_hw_params_t *hw_params;
     snd_pcm_sw_params_t *sw_params;
     int err;
-    /* Adaptive period size: larger for high frequencies (DSD) */
-    snd_pcm_uframes_t period_size = PERIOD_FRAMES;
-    if (rate >= DSD64_RATE) {
-        /* DSD rates: increase period to avoid too short intervals
-         * DSD64:  2.8MHz → 2048 frames = 0.7ms
-         * DSD128: 5.6MHz → 4096 frames = 0.7ms
-         * DSD256: 11.2MHz → 8192 frames = 0.7ms
-         * DSD512: 22.5MHz → 16384 frames = 0.7ms */
-        period_size = (rate / DSD64_RATE) * 2048;
-    }
-    snd_pcm_uframes_t buffer_size = period_size * 4;
+    /* Fixed period size for all rates - both devices must match */
+    snd_pcm_uframes_t period_size = 512;  /* Fixed for capture/playback sync */
+    snd_pcm_uframes_t buffer_size = period_size * 8;  /* Larger buffer for stability */
 
     if ((err = snd_pcm_open(pcm, device, stream, 0)) < 0) {
         fprintf(stderr, "Cannot open %s: %s\n", device, snd_strerror(err));
@@ -304,7 +328,6 @@ int main(void) {
     size_t buffer_size = 0;
     unsigned int current_rate = 0;
     snd_pcm_uframes_t period_size = PERIOD_FRAMES;
-    int uevent_sock = -1;
     char uevent_buf[UEVENT_BUFFER_SIZE];
     int uac_card = -1;
 
@@ -312,7 +335,7 @@ int main(void) {
     signal(SIGTERM, sighandler);
 
     printf("═══════════════════════════════════════════════════════════\n");
-    printf("  UAC2 -> I2S Router v2.0\n");
+    printf("  UAC2 -> I2S Router v2.3\n");
     printf("═══════════════════════════════════════════════════════════\n\n");
 
     /* Find UAC card */
@@ -457,7 +480,7 @@ int main(void) {
     close_pcms();
 
     printf("\n═══════════════════════════════════════════════════════════\n");
-    printf("  UAC2 -> I2S Router v2.0 stopped\n");
+    printf("  UAC2 -> I2S Router v2.3 stopped\n");
     printf("═══════════════════════════════════════════════════════════\n");
 
     return 0;

@@ -1,0 +1,15 @@
+config BR2_PACKAGE_BUFFER_DAEMON
+	bool "buffer_daemon"
+	help
+	  Buffer monitoring daemon for UAC2 audio feedback control.
+	  Monitors I2S playback buffer status and adjusts USB feedback
+	  to maintain optimal buffer fill ratio and prevent audio delays.
+	  
+	  Features:
+	  - Real-time buffer monitoring with 15-second averaging
+	  - Hysteresis-based feedback control to prevent oscillation
+	  - Gradual adjustment with configurable step size
+	  - Filtering of invalid/empty buffer readings
+	  - Sysfs feedback control for UAC2 gadget
+
+	  https://github.com/PureCore/buffer_daemon

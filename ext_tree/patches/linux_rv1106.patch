@@ -610,7 +610,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +obj-$(CONFIG_USB_F_VENDOR)	+= usb_f_vendor.o
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/uac_common.h	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h	2025-11-25 09:15:56.451110545 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/uac_common.h	2025-12-10 12:55:28.544893393 +0300
 @@ -5,5 +5,5 @@
  #ifndef UAC_COMMON_H
  #define UAC_COMMON_H
@@ -620,7 +620,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-12-07 18:54:56.780415317 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2025-12-10 15:03:01.096586520 +0300
 @@ -82,6 +82,13 @@
  	struct snd_card *card;
  	struct snd_pcm *pcm;
@@ -820,7 +820,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  EXPORT_SYMBOL_GPL(u_audio_start_playback);
-@@ -1423,6 +1541,40 @@
+@@ -1423,6 +1541,69 @@
  	schedule_delayed_work(&g_audio->ppm_work, 1 * HZ);
  }
  
@@ -843,14 +843,43 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	return sprintf(buf, "%d\n", uac->current_channels);
 +}
 +
++static ssize_t feedback_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	return sprintf(buf, "%u\n", uac->c_prm.pitch);
++}
++
++static ssize_t feedback_store(struct device *dev, struct device_attribute *attr, 
++			      const char *buf, size_t count)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	unsigned int val;
++	int ret;
++
++	ret = kstrtouint(buf, 10, &val);
++	if (ret)
++		return ret;
++
++	if (val < 500000 || val > 2000000)
++		return -EINVAL;
++
++	spin_lock(&uac->c_prm.lock);
++	uac->c_prm.pitch = val;
++	spin_unlock(&uac->c_prm.lock);
++
++	return count;
++}
++
 +static DEVICE_ATTR_RO(rate);
 +static DEVICE_ATTR_RO(format);
 +static DEVICE_ATTR_RO(channels);
++static DEVICE_ATTR_RW(feedback);
 +
 +static struct attribute *uac_attrs[] = {
 +	&dev_attr_rate.attr,
 +	&dev_attr_format.attr,
 +	&dev_attr_channels.attr,
++	&dev_attr_feedback.attr,
 +	NULL,
 +};
 +
@@ -861,7 +890,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int g_audio_setup(struct g_audio *g_audio, const char *pcm_name,
  					const char *card_name)
  {
-@@ -1511,6 +1663,11 @@
+@@ -1511,6 +1692,11 @@
  
  	uac->card = card;
  
@@ -873,17 +902,57 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/*
  	 * Create first PCM device
  	 * Create a substream only for non-zero channel streams
-@@ -1536,7 +1693,8 @@
+@@ -1536,20 +1722,27 @@
  			|| (c_chmask && params->c_fu.id))
  		strscpy(card->mixername, card_name, sizeof(card->driver));
  
 -	if (c_chmask && g_audio->in_ep_fback) {
 +	/* PURECORE: Always create capture pitch control for feedback */
 +	if (c_chmask) {
++		dev_info(&uac->audio_dev->gadget->dev, "Creating UAC_FBACK_CTRL: c_chmask=%d\n", c_chmask);
++		
  		kctl = snd_ctl_new1(&u_audio_controls[UAC_FBACK_CTRL],
  				    &uac->c_prm);
  		if (!kctl) {
-@@ -1674,6 +1832,26 @@
+-			err = -ENOMEM;
+-			goto snd_fail;
++			dev_err(&uac->audio_dev->gadget->dev, "Failed to create UAC_FBACK_CTRL control\n");
++			/* Don't fail - continue without pitch control */
++		} else {
++			dev_info(&uac->audio_dev->gadget->dev, "Adding UAC_FBACK_CTRL to card %d, device %d\n", 
++				 card->number, pcm->device);
++			
++			err = snd_ctl_add(card, kctl);
++			if (err < 0) {
++				dev_err(&uac->audio_dev->gadget->dev, "Failed to add UAC_FBACK_CTRL: %d\n", err);
++				/* Don't fail - continue without pitch control */
++			} else {
++				dev_info(&uac->audio_dev->gadget->dev, "UAC_FBACK_CTRL created successfully\n");
++			}
+ 		}
+-
+-		kctl->id.device = pcm->device;
+-		kctl->id.subdevice = 0;
+-
+-		err = snd_ctl_add(card, kctl);
+-		if (err < 0)
+-			goto snd_fail;
+ 	}
+ 
+ 	if (p_chmask) {
+@@ -1564,8 +1757,10 @@
+ 		kctl->id.subdevice = 0;
+ 
+ 		err = snd_ctl_add(card, kctl);
+-		if (err < 0)
++		if (err < 0) {
++			dev_err(&uac->audio_dev->gadget->dev, "Failed to add UAC_P_PITCH_CTRL: %d\n", err);
+ 			goto snd_fail;
++		}
+ 	}
+ 
+ 	for (i = 0; i <= SNDRV_PCM_STREAM_LAST; i++) {
+@@ -1674,6 +1869,26 @@
  	if (err < 0)
  		goto snd_fail;
  
@@ -910,7 +979,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
  					"%s", g_audio->uac->card->longname);
  	if (IS_ERR(g_audio->device)) {
-@@ -1718,6 +1896,12 @@
+@@ -1718,6 +1933,12 @@
  	uac = g_audio->uac;
  	g_audio->uac = NULL;
  
@@ -923,7 +992,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	card = uac->card;
  	if (card)
  		snd_card_free_when_closed(card);
-@@ -1745,13 +1929,6 @@
+@@ -1745,13 +1966,6 @@
  }
  module_init(u_audio_init);
  
@@ -939,7 +1008,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  MODULE_AUTHOR("Ruslan Bilovol");
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.h linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.h
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.h	2025-07-03 13:59:45.000000000 +0300
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.h	2025-11-25 19:54:22.264857009 +0300
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.h	2025-12-10 12:55:28.544893393 +0300
 @@ -116,6 +116,9 @@
  	struct snd_uac_chip *uac;
  

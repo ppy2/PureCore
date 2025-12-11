@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Buildroot -g4afcf962-dirty Configuration
+# Buildroot -g7dc0da6a-dirty Configuration
 #
 BR2_HAVE_DOT_CONFIG=y
 BR2_EXTERNAL_NAMES="ext_tree"
@@ -4138,10 +4138,11 @@ BR2_TARGET_UBOOT_CUSTOM_PATCH_DIR=""
 #
 
 #
-# external BR tree for Luckfox Pico Max (in /home/ppy/PureCore/ext_tree)
+# external BR tree for Luckfox Pico Max (in /home/PureCore/ext_tree)
 #
 
 #
 # Custom packages
 #
 BR2_PACKAGE_UAC2_ROUTER=y
+BR2_PACKAGE_BUFFER_DAEMON=y

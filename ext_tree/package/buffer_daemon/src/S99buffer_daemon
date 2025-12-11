@@ -1,0 +1,24 @@
+#!/bin/sh
+# Start buffer_daemon for UAC2 feedback control
+
+case "$1" in
+  start)
+    echo "Starting buffer_daemon..."
+    /usr/bin/buffer_daemon &
+    ;;
+  stop)
+    echo "Stopping buffer_daemon..."
+    killall buffer_daemon 2>/dev/null
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?

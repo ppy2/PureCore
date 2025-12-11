@@ -1,3 +1,4 @@
 menu "Custom packages"
 	source "../ext_tree/package/uac2_router/Config.in"
+	source "../ext_tree/package/buffer_daemon/Config.in"
 endmenu
