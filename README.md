@@ -13,6 +13,47 @@ Embedded Linux system for Luckfox Pico PRO/MAX (RV1106) that emulates hardware i
 
 The project utilizes the internal PLL of the processor for audio clock generation. This built-in PLL allows achieving sound quality at the level of quality hardware quartz generators, providing precise timing essential for high-resolution audio playback.
 
+## System Access
+
+After flashing, device is accessible via SSH for development and debugging:
+
+- **IP Address**: 10.10.10.10
+- **Login**: root
+- **Password**: purefox
+
+```bash
+ssh root@10.10.10.10
+# Password: purefox
+```
+
+### SSH Connection Methods
+
+**Standard Connection:**
+```bash
+ssh root@10.10.10.10
+```
+
+**SquashFS Compatible Solutions (if needed):**
+
+1. **Disable host key checking (temporary):**
+```bash
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@10.10.10.10
+```
+
+2. **Use sshpass for automation:**
+```bash
+sshpass -p purefox ssh -o StrictHostKeyChecking=no root@10.10.10.10
+```
+
+⚠️ **Note**: SquashFS uses read-only filesystem, so SSH cannot save host keys.
+
+**Built-in Solution**: PureCore SquashFS builds automatically handle this by moving SSH host keys to `/tmp` and creating symbolic links, enabling standard SSH connections without additional parameters.
+
+### Available Services
+- **SSH**: Remote shell access and file transfer
+- **uac2_router**: UAC2 to I2S audio routing daemon
+- **buffer_daemon**: Real-time buffer monitoring and feedback control
+
 <img width="400" height="600" alt="image" src="https://github.com/user-attachments/assets/83a82f51-19bb-4a88-975b-d6e05b4e3b74" />
 
 
