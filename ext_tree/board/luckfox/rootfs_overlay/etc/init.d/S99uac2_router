@@ -1,0 +1,24 @@
+#!/bin/sh
+# Start uac2_router for UAC2 to I2S audio routing
+
+case "$1" in
+  start)
+    echo "Starting uac2_router..."
+    /usr/bin/uac2_router &
+    ;;
+  stop)
+    echo "Stopping uac2_router..."
+    killall uac2_router 2>/dev/null
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?
