@@ -17,7 +17,6 @@ endef
 
 define BUFFER_DAEMON_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/buffer_daemon $(TARGET_DIR)/usr/bin/buffer_daemon
-	$(INSTALL) -D -m 0755 $(@D)/S99buffer_daemon $(TARGET_DIR)/etc/init.d/S99buffer_daemon
 endef
 
 $(eval $(generic-package))

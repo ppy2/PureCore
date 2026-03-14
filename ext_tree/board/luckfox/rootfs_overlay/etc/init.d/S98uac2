@@ -72,13 +72,14 @@ start() {
     # p_chmask controls EPIN (capture/mic), c_chmask controls EPOUT (playback/speaker)
     echo 0 > functions/uac2.usb0/p_chmask  # Disable p (actually capture/mic)
     echo 3 > functions/uac2.usb0/c_chmask  # Enable c (actually playback/speaker)
-    # PCM rates up to 768kHz + native DSD64-512 (for Linux Alt Setting 2)
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.usb0/c_srate
+    # PCM rates up to 768kHz + DSD LRCK rates (88200=DSD64, 176400=DSD128, 352800=DSD256, 705600=DSD512)
+    # NOTE: DSD bit rates (2822400 etc.) must NOT be listed — they inflate get_max_srate() and break
+    # the bInterval search loop, producing bInterval=0 (invalid) in the endpoint descriptor.
+    # u_audio.c converts LRCK→DSD bit rate internally when Alt Setting 2 is active (×32).
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/c_srate
     echo 4 > functions/uac2.usb0/c_ssize
     echo 1 > functions/uac2.usb0/c_mute_present
     echo 1 > functions/uac2.usb0/c_volume_present
-    # c_hs_bint=0 allows kernel to auto-select optimal bInterval for DSD512
-    # Kernel will choose bInterval=8 for DSD512 to fit in USB 2.0 bandwidth
 
     # Fix p_volume parameters even though p_chmask=0 (kernel validates all params regardless)
     echo 0 > functions/uac2.usb0/p_volume_min
@@ -87,7 +88,7 @@ start() {
 
     # IMPORTANT: Set p_srate and p_ssize for capture (UAC2 input from host)
     # Even though p_chmask=0, these are required for proper UAC2 function
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000,2822400,5644800,11289600,22579200" > functions/uac2.usb0/p_srate
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/p_srate
     echo 4 > functions/uac2.usb0/p_ssize
 
     # CRITICALLY IMPORTANT: Parameters for supporting up to DSD512
