@@ -660,29 +660,30 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 12:59:45.000000000 +0200
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2026-03-14 14:46:46.263668094 +0100
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2026-03-16 13:37:41.874781884 +0100
 @@ -23,8 +23,8 @@
  
  #include "u_audio.h"
  
 -#define BUFF_SIZE_MAX	(PAGE_SIZE * 16)
 -#define PRD_SIZE_MAX	PAGE_SIZE
-+#define BUFF_SIZE_MAX	(PAGE_SIZE * 64)
++#define BUFF_SIZE_MAX	(PAGE_SIZE * 512)
 +#define PRD_SIZE_MAX	(PAGE_SIZE * 4)
  #define MIN_PERIODS	4
  
  enum {
-@@ -50,6 +50,9 @@
+@@ -50,6 +50,10 @@
  	void *rbuf;
  
  	unsigned int pitch;	/* Stream pitch ratio to 1000000 */
 +	long fb_integral;	/* PI controller integrator state */
 +	long fb_err_smooth;	/* EMA-filtered error for P-term */
-+	unsigned long fb_freeze;/* Freeze PI for N feedback cycles (sysfs load) */
++	unsigned long fb_freeze;/* Freeze PI for N feedback cycles */
++	unsigned long fb_freeze_grace;/* Grace period: suppress emergency unfreeze */
  	unsigned int max_psize;	/* MaxPacketSize of endpoint */
  
  	struct usb_request **reqs;
-@@ -82,6 +85,13 @@
+@@ -82,6 +86,13 @@
  	struct snd_card *card;
  	struct snd_pcm *pcm;
  
@@ -696,7 +697,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/* pre-calculated values for playback iso completion */
  	unsigned long long p_residue_mil;
  	unsigned int p_interval;
-@@ -100,7 +110,6 @@
+@@ -100,7 +111,6 @@
  };
  
  static struct class *audio_class;
@@ -704,7 +705,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  static void u_audio_set_fback_frequency(enum usb_device_speed speed,
  					struct usb_ep *out_ep,
  					unsigned long long freq,
-@@ -258,19 +267,43 @@
+@@ -258,19 +268,43 @@
  			       req->actual);
  		}
  	} else {
@@ -751,7 +752,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	snd_pcm_stream_unlock(substream);
  
  	if ((hw_ptr % snd_pcm_lib_period_bytes(substream)) < req->actual)
-@@ -299,14 +332,70 @@
+@@ -299,14 +333,119 @@
  	if (req->status == -ESHUTDOWN)
  		return;
  
@@ -775,9 +776,35 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	 * Decremented each cycle; unfreezes when reaching 0.
 +	 */
 +	if (prm->fb_freeze > 0) {
++		struct snd_pcm_substream *ss = prm->ss;
++
 +		prm->fb_freeze--;
++		if (prm->fb_freeze_grace > 0)
++			prm->fb_freeze_grace--;
++		/*
++		 * Emergency unfreeze: if capture buffer drifts beyond
++		 * safe limits (12.5%–87.5%), the saved pitch doesn't
++		 * match this USB host — let PI correct immediately.
++		 * Skip during grace period (first 2s) while buffer fills.
++		 */
++		if (prm->fb_freeze_grace == 0 &&
++		    ss && ss->runtime && snd_pcm_running(ss)) {
++			struct snd_pcm_runtime *rt = ss->runtime;
++			snd_pcm_uframes_t hw, ap, fl;
++
++			hw = bytes_to_frames(rt, prm->hw_ptr);
++			ap = rt->control->appl_ptr % rt->buffer_size;
++			fl = (hw >= ap) ? hw - ap
++					: hw + rt->buffer_size - ap;
++			if (fl < rt->buffer_size / 64 ||
++			    fl > rt->buffer_size * 63 / 64) {
++				prm->fb_freeze = 0;
++				goto run_pi;
++			}
++		}
 +		goto skip_pi;
 +	}
++run_pi:
 +	{
 +		struct snd_pcm_substream *ss = prm->ss;
 +
@@ -794,29 +821,52 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +			if (fill < 0)
 +				fill += runtime->buffer_size;
 +
-+			target = runtime->buffer_size / 2;
++			/* Target = small fraction of buffer.
++			 * The userspace router reads back-to-back,
++			 * so the natural steady-state fill is only
++			 * ~0-512 frames (one period).
++			 * buffer_size/128 ≈ 512, matching the natural level. */
++			target = runtime->buffer_size / 128;
 +			error = fill - target;
 +
 +			/* EMA filter: alpha=1/64, time constant ~8ms at HS */
 +			prm->fb_err_smooth +=
 +				(error - prm->fb_err_smooth + 32) / 64;
 +
-+			/* I-term: Ki = 1/8192 */
++			/* I-term accumulator (full precision) */
 +			prm->fb_integral += prm->fb_err_smooth;
 +
-+			/* P(filtered) + I */
-+			p_term = prm->fb_err_smooth / 32;
-+			adjust = p_term + prm->fb_integral / 8192;
++			/* Rate-scaled PI gains.
++			 * Kp = 1/(32*rr), Ki = 1/(262144*rr).
++			 *
++			 * Ki was reduced 32x (from 8192 to 262144 denom)
++			 * to fix oscillation: loop gain at the system's
++			 * natural frequency was 15x too high, causing
++			 * sustained ±500 PPM swings. With 262144 the
++			 * gain margin is ~6 dB — stable convergence. */
++			{
++			long rr = (long)prm->srate / 44100;
++			if (rr < 1) rr = 1;
 +
-+			/* Clamping anti-windup: back-calculate integrator */
++			p_term = (2 * prm->fb_err_smooth) / rr;
++			adjust = p_term +
++				 prm->fb_integral / (262144L * rr);
++
++			/* Conditional integration anti-windup:
++			 * When clamped, undo integration that pushes
++			 * further into saturation.  Allow integration
++			 * in the recovery direction. */
 +			if (adjust > 500) {
 +				adjust = 500;
-+				prm->fb_integral =
-+					(500L - p_term) * 8192;
++				if (prm->fb_err_smooth > 0)
++					prm->fb_integral -=
++						prm->fb_err_smooth;
 +			} else if (adjust < -500) {
 +				adjust = -500;
-+				prm->fb_integral =
-+					(-500L - p_term) * 8192;
++				if (prm->fb_err_smooth < 0)
++					prm->fb_integral -=
++						prm->fb_err_smooth;
++			}
 +			}
 +
 +			prm->pitch = (unsigned int)(1000000L - adjust);
@@ -826,7 +876,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	u_audio_set_fback_frequency(audio_dev->gadget->speed, audio_dev->out_ep,
  				    prm->srate, prm->pitch,
  				    req->buf);
-@@ -395,6 +484,7 @@
+@@ -395,6 +534,7 @@
  	struct uac_rtd_params *prm;
  	int p_ssize, c_ssize;
  	int p_chmask, c_chmask;
@@ -834,7 +884,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	audio_dev = uac->audio_dev;
  	params = &audio_dev->params;
-@@ -424,6 +514,15 @@
+@@ -424,6 +564,15 @@
  
  	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
  
@@ -850,7 +900,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  
-@@ -516,8 +615,27 @@
+@@ -516,8 +665,27 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
@@ -879,7 +929,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	prm = &uac->c_prm;
  	for (i = 0; i < UAC_MAX_RATES; i++) {
  		if (params->c_srates[i] == srate) {
-@@ -526,16 +644,60 @@
+@@ -526,16 +694,60 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_OUT] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
@@ -940,7 +990,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int u_audio_get_capture_srate(struct g_audio *audio_dev, u32 *val)
  {
  	struct snd_uac_chip *uac = audio_dev->uac;
-@@ -557,6 +719,7 @@
+@@ -557,6 +769,7 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
@@ -948,7 +998,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
  	prm = &uac->p_prm;
-@@ -567,6 +730,16 @@
+@@ -567,6 +780,16 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_IN] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
@@ -965,7 +1015,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  			return 0;
  		}
  		if (params->p_srates[i] == 0)
-@@ -654,6 +827,23 @@
+@@ -654,6 +877,23 @@
  
  	set_active(&uac->c_prm, true);
  
@@ -989,27 +1039,36 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	ep_fback = audio_dev->in_ep_fback;
  	if (!ep_fback)
  		return 0;
-@@ -693,6 +883,9 @@
- 	 * be meauserd at start of playback
+@@ -689,10 +929,13 @@
+ 
+ 	/*
+ 	 * Configure the feedback endpoint's reported frequency.
+-	 * Always start with original frequency since its deviation can't
+-	 * be meauserd at start of playback
++	 * Use seed from sysfs if available, otherwise nominal.
  	 */
  	prm->pitch = 1000000;
 +	prm->fb_integral = 0;
 +	prm->fb_err_smooth = 0;
 +	prm->fb_freeze = 0;
++	prm->fb_freeze_grace = 0;
  	u_audio_set_fback_frequency(audio_dev->gadget->speed, ep,
  				    prm->srate, prm->pitch,
  				    req_fback->buf);
-@@ -760,6 +953,9 @@
- 	 * Always start with original frequency
- 	 */
+@@ -756,10 +999,9 @@
+ 	}
+ 
+ 	ep_desc = ep->desc;
+-	/*
+-	 * Always start with original frequency
+-	 */
  	prm->pitch = 1000000;
 +	prm->fb_integral = 0;
 +	prm->fb_err_smooth = 0;
-+	prm->fb_freeze = 0;
  
  	/* pre-calculate the playback endpoint's interval */
  	if (gadget->speed == USB_SPEED_FULL)
-@@ -807,6 +1003,21 @@
+@@ -807,6 +1049,21 @@
  
  	set_active(&uac->p_prm, true);
  
@@ -1031,7 +1090,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  EXPORT_SYMBOL_GPL(u_audio_start_playback);
-@@ -1423,6 +1634,76 @@
+@@ -1423,6 +1680,78 @@
  	schedule_delayed_work(&g_audio->ppm_work, 1 * HZ);
  }
  
@@ -1074,30 +1133,32 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	if (val < 500000 || val > 2000000)
 +		return -EINVAL;
 +
++	/* Direct pitch override (diagnostic/manual use) */
 +	spin_lock(&uac->c_prm.lock);
 +	uac->c_prm.pitch = val;
-+	/* Sync PI controller state so it continues from the written pitch.
-+	 * fb_integral = (1000000 - pitch) * Ki_denom, fb_err_smooth = 0 */
-+	uac->c_prm.fb_integral = (1000000L - (long)val) * 8192;
-+	uac->c_prm.fb_err_smooth = 0;
-+	/* Freeze PI controller for 5 minutes (8000 callbacks/sec at HS).
-+	 * Holds saved pitch while buffers fill and stabilize. */
-+	uac->c_prm.fb_freeze = 8000UL * 300;
 +	spin_unlock(&uac->c_prm.lock);
 +
 +	return count;
++}
++
++static ssize_t fb_freeze_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct snd_uac_chip *uac = dev_get_drvdata(dev);
++	return sprintf(buf, "%lu\n", uac->c_prm.fb_freeze);
 +}
 +
 +static DEVICE_ATTR_RO(rate);
 +static DEVICE_ATTR_RO(format);
 +static DEVICE_ATTR_RO(channels);
 +static DEVICE_ATTR_RW(feedback);
++static DEVICE_ATTR_RO(fb_freeze);
 +
 +static struct attribute *uac_attrs[] = {
 +	&dev_attr_rate.attr,
 +	&dev_attr_format.attr,
 +	&dev_attr_channels.attr,
 +	&dev_attr_feedback.attr,
++	&dev_attr_fb_freeze.attr,
 +	NULL,
 +};
 +
@@ -1108,7 +1169,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int g_audio_setup(struct g_audio *g_audio, const char *pcm_name,
  					const char *card_name)
  {
-@@ -1511,6 +1792,11 @@
+@@ -1511,6 +1840,11 @@
  
  	uac->card = card;
  
@@ -1120,7 +1181,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/*
  	 * Create first PCM device
  	 * Create a substream only for non-zero channel streams
-@@ -1536,20 +1822,27 @@
+@@ -1536,20 +1870,27 @@
  			|| (c_chmask && params->c_fu.id))
  		strscpy(card->mixername, card_name, sizeof(card->driver));
  
@@ -1158,7 +1219,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	}
  
  	if (p_chmask) {
-@@ -1564,8 +1857,10 @@
+@@ -1564,8 +1905,10 @@
  		kctl->id.subdevice = 0;
  
  		err = snd_ctl_add(card, kctl);
@@ -1170,7 +1231,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	}
  
  	for (i = 0; i <= SNDRV_PCM_STREAM_LAST; i++) {
-@@ -1674,6 +1969,26 @@
+@@ -1674,6 +2017,26 @@
  	if (err < 0)
  		goto snd_fail;
  
@@ -1197,7 +1258,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
  					"%s", g_audio->uac->card->longname);
  	if (IS_ERR(g_audio->device)) {
-@@ -1718,6 +2033,12 @@
+@@ -1718,6 +2081,12 @@
  	uac = g_audio->uac;
  	g_audio->uac = NULL;
  
@@ -1210,7 +1271,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	card = uac->card;
  	if (card)
  		snd_card_free_when_closed(card);
-@@ -1745,13 +2066,6 @@
+@@ -1745,13 +2114,6 @@
  }
  module_init(u_audio_init);
  
