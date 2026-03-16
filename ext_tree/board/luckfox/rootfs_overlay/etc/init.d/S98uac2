@@ -1,18 +1,15 @@
 #!/bin/sh
 
-# PureCore UAC2 Gadget Auto-start Script - FULL EMULATION
-# Runs last in the boot sequence
+# PureCore UAC2 Gadget Auto-start Script
 #
 # EMULATED via configfs:
 # ✓ Device Qualifier: 0x00/0x00/0x00
 # ✓ Self-powered, 100mA
 # ✓ Minimal string descriptors
 # ✓ iConfiguration = 0x00, iFunction = 0x00
-#
-# REQUIRE KERNEL PATCHES (f_uac2.c):
-# ✗ HIGH BANDWIDTH mode (2x800 vs 1x808) - line 786-827
-# ✗ Lock Delay (0x02, 0x0800) - need configfs attributes
-# ✗ Second vendor-specific configuration
+
+GADGET=/sys/kernel/config/usb_gadget/purecore
+FUNC=$GADGET/functions/uac2.usb0
 
 start() {
     echo "Starting PureCore UAC2 gadget..."
@@ -24,108 +21,81 @@ start() {
         return 1
     fi
 
-    # Create PureCore gadget
-    cd /sys/kernel/config/usb_gadget
-
     # Completely remove old gadget if it exists
-    if [ -d "purecore" ]; then
-        cd purecore
-        echo "" > UDC 2>/dev/null
-        rm -f configs/c.1/uac2.usb0 2>/dev/null
-        rm -f configs/c.2/vendor.0 2>/dev/null
-        rmdir configs/c.1 2>/dev/null
-        rmdir configs/c.2 2>/dev/null
-        rmdir functions/uac2.usb0 2>/dev/null
-        rmdir functions/vendor.0 2>/dev/null
-        rmdir strings/0x409 2>/dev/null
-        cd ..
-        rmdir purecore 2>/dev/null
+    if [ -d "$GADGET" ]; then
+        echo "" > $GADGET/UDC 2>/dev/null
+        rm -f $GADGET/configs/c.1/uac2.usb0 2>/dev/null
+        rmdir $GADGET/configs/c.1 2>/dev/null
+        rmdir $FUNC 2>/dev/null
+        rmdir $GADGET/strings/0x409 2>/dev/null
+        rmdir $GADGET 2>/dev/null
     fi
 
-    mkdir -p purecore
-    cd purecore
+    mkdir -p $GADGET
 
-    # Device Descriptor (original PureCore ID)
-#    echo 0x1209 > idVendor
-#    echo 0x2468 > idProduct
-    echo 0x152A > idVendor
-    echo 0x8852 > idProduct
-    echo 0x0312 > bcdDevice
-    echo 0x0200 > bcdUSB
-    # Standard UAC2: Device Class 0x00 (defined by interfaces)
-    echo 0x00 > bDeviceClass      # Defined by interfaces
-    echo 0x00 > bDeviceSubClass   # Defined by interfaces
-    echo 0x00 > bDeviceProtocol   # Defined by interfaces
-    echo 64 > bMaxPacketSize0
+    # Device Descriptor
+    echo 0x152A > $GADGET/idVendor
+    echo 0x8852 > $GADGET/idProduct
+    echo 0x0312 > $GADGET/bcdDevice
+    echo 0x0200 > $GADGET/bcdUSB
+    echo 0x00 > $GADGET/bDeviceClass
+    echo 0x00 > $GADGET/bDeviceSubClass
+    echo 0x00 > $GADGET/bDeviceProtocol
+    echo 64 > $GADGET/bMaxPacketSize0
 
-    # Device Strings - minimal as in the original
-    mkdir -p strings/0x409
-    echo "PureCore" > strings/0x409/manufacturer
-    echo "PureCore USB Hi-Resolution Audio" > strings/0x409/product
-    # Serial number = 0x00 (empty) as in the original
-    echo "" > strings/0x409/serialnumber
+    # Device Strings
+    mkdir -p $GADGET/strings/0x409
+    echo "PureCore" > $GADGET/strings/0x409/manufacturer
+    echo "PureCore USB Hi-Resolution Audio" > $GADGET/strings/0x409/product
+    echo "" > $GADGET/strings/0x409/serialnumber
 
     # UAC2 Function
-    mkdir -p functions/uac2.usb0
+    mkdir -p $FUNC
 
     # CRITICAL FIX: Stock f_uac2.c has REVERSED naming!
     # p_chmask controls EPIN (capture/mic), c_chmask controls EPOUT (playback/speaker)
-    echo 0 > functions/uac2.usb0/p_chmask  # Disable p (actually capture/mic)
-    echo 3 > functions/uac2.usb0/c_chmask  # Enable c (actually playback/speaker)
-    # PCM rates up to 768kHz + DSD LRCK rates (88200=DSD64, 176400=DSD128, 352800=DSD256, 705600=DSD512)
-    # NOTE: DSD bit rates (2822400 etc.) must NOT be listed — they inflate get_max_srate() and break
-    # the bInterval search loop, producing bInterval=0 (invalid) in the endpoint descriptor.
-    # u_audio.c converts LRCK→DSD bit rate internally when Alt Setting 2 is active (×32).
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/c_srate
-    echo 4 > functions/uac2.usb0/c_ssize
-    echo 1 > functions/uac2.usb0/c_mute_present
-    echo 1 > functions/uac2.usb0/c_volume_present
+    echo 0 > $FUNC/p_chmask
+    echo 3 > $FUNC/c_chmask
+    # PCM rates up to 768kHz + DSD LRCK rates
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > $FUNC/c_srate
+    echo 4 > $FUNC/c_ssize
+    echo 1 > $FUNC/c_mute_present
+    echo 1 > $FUNC/c_volume_present
 
-    # Fix p_volume parameters even though p_chmask=0 (kernel validates all params regardless)
-    echo 0 > functions/uac2.usb0/p_volume_min
-    echo 256 > functions/uac2.usb0/p_volume_max
-    echo 256 > functions/uac2.usb0/p_volume_res
+    # Fix p_volume parameters (kernel validates regardless of p_chmask)
+    echo 0 > $FUNC/p_volume_min
+    echo 256 > $FUNC/p_volume_max
+    echo 256 > $FUNC/p_volume_res
 
-    # IMPORTANT: Set p_srate and p_ssize for capture (UAC2 input from host)
-    # Even though p_chmask=0, these are required for proper UAC2 function
-    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/p_srate
-    echo 4 > functions/uac2.usb0/p_ssize
+    # Set p_srate and p_ssize (required for proper UAC2 function)
+    echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > $FUNC/p_srate
+    echo 4 > $FUNC/p_ssize
 
     # Parameters for DSD512 support
-    echo 8 > functions/uac2.usb0/req_number    # USB request buffers
-    # fb_max=24: 2.4% overhead for async feedback. At 768kHz max:
-    # 768000*1.024/8000 * 2ch * 4bytes = 788 bytes/packet → fits HS 1024 single-transaction
-    echo 24 > functions/uac2.usb0/fb_max
+    echo 8 > $FUNC/req_number
+    # fb_max=24: 2.4% overhead for async feedback
+    echo 24 > $FUNC/fb_max
 
     # bInterval for high-speed isochronous endpoints.
     # bInterval=1 → every microframe (125µs) → 8000 packets/sec.
-    # At DSD512 (705600 Hz, 2ch, 4B): 705600*2*4/8000 = 706 bytes/pkt — fits in 1024.
-    # Default (0=auto) calculates bInterval=4 → 1ms → only 128K fps → DSD512 starves!
-    echo 1 > functions/uac2.usb0/c_hs_bint
-    echo 1 > functions/uac2.usb0/p_hs_bint
+    # At DSD512 (705600 Hz, 2ch, 4B): 706 bytes/pkt — fits in 1024.
+    # Default (0=auto) → bInterval=4 (1ms) → DSD512 starves!
+    echo 1 > $FUNC/c_hs_bint
+    echo 1 > $FUNC/p_hs_bint
 
-    # Function name - shown in Windows as device name
-    echo "PureCore" > functions/uac2.usb0/function_name
+    # Function name
+    echo "PureCore" > $FUNC/function_name
 
     # Configuration 1 - UAC2 Audio (Self-powered)
-    mkdir -p configs/c.1
-    echo 0xC0 > configs/c.1/bmAttributes  # Self-powered
-    echo 100 > configs/c.1/MaxPower       # 100mA
-    # iConfiguration = 0x00 (don't create strings!)
-    ln -s functions/uac2.usb0 configs/c.1/
-
-    # Configuration 2 - DISABLED for standard UAC2 (no PureCore driver needed)
-    # mkdir -p functions/vendor.0
-    # mkdir -p configs/c.2
-    # echo 0xC0 > configs/c.2/bmAttributes  # Self-powered
-    # echo 100 > configs/c.2/MaxPower       # 100mA
-    # iConfiguration = 0x00 (don't create strings!)
-    # ln -s functions/vendor.0 configs/c.2/
+    mkdir -p $GADGET/configs/c.1
+    echo 0xC0 > $GADGET/configs/c.1/bmAttributes
+    echo 100 > $GADGET/configs/c.1/MaxPower
+    ln -s $FUNC $GADGET/configs/c.1/
 
     # Enable gadget
-    ls /sys/class/udc > UDC
+    ls /sys/class/udc > $GADGET/UDC
 
-    echo "PureCore UAC2 gadget with 2 configurations started"
+    echo "PureCore UAC2 gadget started"
 }
 
 case "$1" in
@@ -134,7 +104,7 @@ case "$1" in
     ;;
   stop)
     echo "Stopping PureCore gadget..."
-    cd /sys/kernel/config/usb_gadget/purecore 2>/dev/null && echo "" > UDC 2>/dev/null
+    [ -f "$GADGET/UDC" ] && echo "" > $GADGET/UDC 2>/dev/null
     ;;
   restart)
     $0 stop
@@ -145,4 +115,3 @@ case "$1" in
     echo "Usage: $0 {start|stop|restart}"
     exit 1
 esac
-
