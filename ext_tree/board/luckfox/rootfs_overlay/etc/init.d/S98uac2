@@ -91,11 +91,18 @@ start() {
     echo "44100,48000,88200,96000,176400,192000,352800,384000,705600,768000" > functions/uac2.usb0/p_srate
     echo 4 > functions/uac2.usb0/p_ssize
 
-    # CRITICALLY IMPORTANT: Parameters for supporting up to DSD512
-    echo 8 > functions/uac2.usb0/req_number    # USB request buffers (increased for DSD512)
-    # fb_max=24 (2.4% overhead) allows DSD512 to fit in USB 2.0 HS bandwidth
-    # 22579200Hz * 1.024 / 8000 * 2ch * 4bytes = 23138 bytes → needs bInterval=8
-    echo 24 > functions/uac2.usb0/fb_max       # Async overhead optimized for DSD512
+    # Parameters for DSD512 support
+    echo 8 > functions/uac2.usb0/req_number    # USB request buffers
+    # fb_max=24: 2.4% overhead for async feedback. At 768kHz max:
+    # 768000*1.024/8000 * 2ch * 4bytes = 788 bytes/packet → fits HS 1024 single-transaction
+    echo 24 > functions/uac2.usb0/fb_max
+
+    # bInterval for high-speed isochronous endpoints.
+    # bInterval=1 → every microframe (125µs) → 8000 packets/sec.
+    # At DSD512 (705600 Hz, 2ch, 4B): 705600*2*4/8000 = 706 bytes/pkt — fits in 1024.
+    # Default (0=auto) calculates bInterval=4 → 1ms → only 128K fps → DSD512 starves!
+    echo 1 > functions/uac2.usb0/c_hs_bint
+    echo 1 > functions/uac2.usb0/p_hs_bint
 
     # Function name - shown in Windows as device name
     echo "PureCore" > functions/uac2.usb0/function_name
@@ -138,3 +145,4 @@ case "$1" in
     echo "Usage: $0 {start|stop|restart}"
     exit 1
 esac
+
