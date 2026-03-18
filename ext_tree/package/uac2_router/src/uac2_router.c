@@ -170,7 +170,7 @@ static int setup_pcm(snd_pcm_t **pcm, const char *device, snd_pcm_stream_t strea
         buffer_size = period_size * 16;
         /* Capture: scale buffer to give PI controller ~180ms headroom
          * at any rate (same as 8192 frames at 44.1k). */
-        if (stream == SND_PCM_STREAM_CAPTURE && rate > 44100)
+        if (stream == SND_PCM_STREAM_CAPTURE)
             buffer_size = 65536;
     }
 

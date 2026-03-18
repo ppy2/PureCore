@@ -660,7 +660,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  #endif
 diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c
 --- linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget/function/u_audio.c	2025-07-03 12:59:45.000000000 +0200
-+++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2026-03-16 13:37:41.874781884 +0100
++++ linux-rockchip-rk-6.1-rkr6.1_modify/drivers/usb/gadget/function/u_audio.c	2026-03-18 06:38:36.228617635 +0100
 @@ -23,8 +23,8 @@
  
  #include "u_audio.h"
@@ -752,7 +752,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	snd_pcm_stream_unlock(substream);
  
  	if ((hw_ptr % snd_pcm_lib_period_bytes(substream)) < req->actual)
-@@ -299,14 +333,119 @@
+@@ -299,14 +333,117 @@
  	if (req->status == -ESHUTDOWN)
  		return;
  
@@ -767,9 +767,9 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +	/*
 +	 * Adaptive feedback: PI controller for hi-end audio.
 +	 *
-+	 * EMA filter (alpha=1/64): rejects USB packet jitter.
++	 * EMA filter (alpha=1/256): smooths sawtooth from single-threaded router.
 +	 * P-term (Kp=1/32): strong damping, resists buffer changes.
-+	 * I-term (Ki=1/8192): very slow integration, no overshoot.
++	 * I-term (Ki=1/262144): very slow integration, no overshoot.
 +	 *
 +	 * Clamping anti-windup prevents integrator saturation.
 +	 * fb_freeze: when >0, PI is frozen (pitch from sysfs held as-is).
@@ -829,9 +829,11 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +			target = runtime->buffer_size / 128;
 +			error = fill - target;
 +
-+			/* EMA filter: alpha=1/64, time constant ~8ms at HS */
++			/* EMA filter: alpha=1/256, time constant ~32ms at HS.
++			 * Increased from 1/64 to smooth out sawtooth oscillations
++			 * from single-threaded router architecture. */
 +			prm->fb_err_smooth +=
-+				(error - prm->fb_err_smooth + 32) / 64;
++				(error - prm->fb_err_smooth + 128) / 256;
 +
 +			/* I-term accumulator (full precision) */
 +			prm->fb_integral += prm->fb_err_smooth;
@@ -852,20 +854,16 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
 +			adjust = p_term +
 +				 prm->fb_integral / (262144L * rr);
 +
-+			/* Conditional integration anti-windup:
-+			 * When clamped, undo integration that pushes
-+			 * further into saturation.  Allow integration
-+			 * in the recovery direction. */
++			/* Back-calculation anti-windup:
++			 * When adjust is clamped, recalculate fb_integral
++			 * to match the clamped output. This prevents windup
++			 * regardless of whether P-term or I-term caused saturation. */
 +			if (adjust > 500) {
 +				adjust = 500;
-+				if (prm->fb_err_smooth > 0)
-+					prm->fb_integral -=
-+						prm->fb_err_smooth;
++				prm->fb_integral = (500L - p_term) * 262144L * rr;
 +			} else if (adjust < -500) {
 +				adjust = -500;
-+				if (prm->fb_err_smooth < 0)
-+					prm->fb_integral -=
-+						prm->fb_err_smooth;
++				prm->fb_integral = (-500L - p_term) * 262144L * rr;
 +			}
 +			}
 +
@@ -876,7 +874,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	u_audio_set_fback_frequency(audio_dev->gadget->speed, audio_dev->out_ep,
  				    prm->srate, prm->pitch,
  				    req->buf);
-@@ -395,6 +534,7 @@
+@@ -395,6 +532,7 @@
  	struct uac_rtd_params *prm;
  	int p_ssize, c_ssize;
  	int p_chmask, c_chmask;
@@ -884,7 +882,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	audio_dev = uac->audio_dev;
  	params = &audio_dev->params;
-@@ -424,6 +564,15 @@
+@@ -424,6 +562,15 @@
  
  	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
  
@@ -900,7 +898,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  
-@@ -516,8 +665,27 @@
+@@ -516,8 +663,27 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
@@ -929,7 +927,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	prm = &uac->c_prm;
  	for (i = 0; i < UAC_MAX_RATES; i++) {
  		if (params->c_srates[i] == srate) {
-@@ -526,16 +694,60 @@
+@@ -526,16 +692,60 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_OUT] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
@@ -990,7 +988,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int u_audio_get_capture_srate(struct g_audio *audio_dev, u32 *val)
  {
  	struct snd_uac_chip *uac = audio_dev->uac;
-@@ -557,6 +769,7 @@
+@@ -557,6 +767,7 @@
  	struct uac_rtd_params *prm;
  	int i;
  	unsigned long flags;
@@ -998,7 +996,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	dev_dbg(&audio_dev->gadget->dev, "%s: srate %d\n", __func__, srate);
  	prm = &uac->p_prm;
-@@ -567,6 +780,16 @@
+@@ -567,6 +778,16 @@
  			audio_dev->usb_state[SET_SAMPLE_RATE_IN] = true;
  			schedule_work(&audio_dev->work);
  			spin_unlock_irqrestore(&prm->lock, flags);
@@ -1015,7 +1013,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  			return 0;
  		}
  		if (params->p_srates[i] == 0)
-@@ -654,6 +877,23 @@
+@@ -654,6 +875,23 @@
  
  	set_active(&uac->c_prm, true);
  
@@ -1039,7 +1037,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	ep_fback = audio_dev->in_ep_fback;
  	if (!ep_fback)
  		return 0;
-@@ -689,10 +929,13 @@
+@@ -689,10 +927,13 @@
  
  	/*
  	 * Configure the feedback endpoint's reported frequency.
@@ -1055,7 +1053,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	u_audio_set_fback_frequency(audio_dev->gadget->speed, ep,
  				    prm->srate, prm->pitch,
  				    req_fback->buf);
-@@ -756,10 +999,9 @@
+@@ -756,10 +997,9 @@
  	}
  
  	ep_desc = ep->desc;
@@ -1068,7 +1066,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  
  	/* pre-calculate the playback endpoint's interval */
  	if (gadget->speed == USB_SPEED_FULL)
-@@ -807,6 +1049,21 @@
+@@ -807,6 +1047,21 @@
  
  	set_active(&uac->p_prm, true);
  
@@ -1090,7 +1088,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	return 0;
  }
  EXPORT_SYMBOL_GPL(u_audio_start_playback);
-@@ -1423,6 +1680,78 @@
+@@ -1423,6 +1678,78 @@
  	schedule_delayed_work(&g_audio->ppm_work, 1 * HZ);
  }
  
@@ -1169,7 +1167,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  int g_audio_setup(struct g_audio *g_audio, const char *pcm_name,
  					const char *card_name)
  {
-@@ -1511,6 +1840,11 @@
+@@ -1511,6 +1838,11 @@
  
  	uac->card = card;
  
@@ -1181,7 +1179,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	/*
  	 * Create first PCM device
  	 * Create a substream only for non-zero channel streams
-@@ -1536,20 +1870,27 @@
+@@ -1536,20 +1868,27 @@
  			|| (c_chmask && params->c_fu.id))
  		strscpy(card->mixername, card_name, sizeof(card->driver));
  
@@ -1219,7 +1217,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	}
  
  	if (p_chmask) {
-@@ -1564,8 +1905,10 @@
+@@ -1564,8 +1903,10 @@
  		kctl->id.subdevice = 0;
  
  		err = snd_ctl_add(card, kctl);
@@ -1231,7 +1229,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	}
  
  	for (i = 0; i <= SNDRV_PCM_STREAM_LAST; i++) {
-@@ -1674,6 +2017,26 @@
+@@ -1674,6 +2015,26 @@
  	if (err < 0)
  		goto snd_fail;
  
@@ -1258,7 +1256,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	g_audio->device = device_create(audio_class, NULL, MKDEV(0, 0), NULL,
  					"%s", g_audio->uac->card->longname);
  	if (IS_ERR(g_audio->device)) {
-@@ -1718,6 +2081,12 @@
+@@ -1718,6 +2079,12 @@
  	uac = g_audio->uac;
  	g_audio->uac = NULL;
  
@@ -1271,7 +1269,7 @@ diff -Naur --no-dereference linux-rockchip-rk-6.1-rkr6.1_orig/drivers/usb/gadget
  	card = uac->card;
  	if (card)
  		snd_card_free_when_closed(card);
-@@ -1745,13 +2114,6 @@
+@@ -1745,13 +2112,6 @@
  }
  module_init(u_audio_init);
  
