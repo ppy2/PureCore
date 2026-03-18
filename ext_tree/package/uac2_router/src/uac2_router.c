@@ -533,6 +533,7 @@ int main(void) {
                     } else if (wr == -EPIPE) {
                         /* XRUN recovery: re-enter pre-buffer phase */
                         xrun_count++;
+                        fprintf(stderr, "[XRUN] Playback underrun #%lu at w=%lu\n", xrun_count, write_count);
                         snd_pcm_prepare(pcm_playback);
                         need_prebuffer = 1;
                         play_started = 0;
@@ -546,15 +547,16 @@ int main(void) {
             }
 
 
-            /* Status log every ~10 s (use frame counter, not time() syscall) */
-            if (cap_frames_total - last_status_frames >= current_rate / 32 * 10) {
+            /* Status log disabled to reduce spam */
+            /* if (cap_frames_total - last_status_frames >= current_rate / 32 * 10) {
                 last_status_frames = cap_frames_total;
                 printf("[S] w=%lu x=%lu cx=%lu cf=%lu\n",
                        write_count, xrun_count, cap_xrun_count, cap_frames_total);
                 fflush(stdout);
-            }
+            } */
         } else if (frames == -EPIPE) {
             cap_xrun_count++;
+            fprintf(stderr, "[XRUN] Capture overrun #%lu\n", cap_xrun_count);
             accum_pos = 0;
             snd_pcm_prepare(pcm_capture);
             snd_pcm_start(pcm_capture);
